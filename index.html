@@ -108,6 +108,10 @@
   .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
   .media-filter { display: flex; gap: 6px; margin-top: 10px; }
+  .list-search-row { margin-top: 10px; }
+  #list-search { width: 100%; min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 13px; font-family: inherit; }
+  #list-search::placeholder { color: var(--text-muted); }
+  #list-search:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   .filter-btn { background: var(--bg-elevated); border: 1px solid var(--card-border); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
   .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
   #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -145,9 +149,13 @@
   .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
   .suggest-panel { margin-top: 16px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated); padding: 12px; }
-  .suggest-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .suggest-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+  .suggest-header.is-open { margin-bottom: 10px; }
   .suggest-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: var(--gold); }
+  .suggest-count { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted); margin-left: 6px; letter-spacing: 0; }
+  .suggest-header-actions { display: flex; align-items: center; gap: 10px; }
   .suggest-header .icon-btn { font-size: 11px; padding: 4px 8px; }
+  .suggest-caret { color: var(--text-muted); font-size: 12px; }
   .suggest-list { display: flex; flex-direction: column; gap: 8px; }
   .suggest-card { display: flex; gap: 10px; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; background: var(--bg); }
   .suggest-card .s-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
@@ -160,6 +168,7 @@
   .suggest-card .s-actions .icon-btn { font-size: 11px; }
   .suggest-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; }
   .suggest-status { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .imdb-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #16213e; background: var(--gold); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
   .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
   .list-toolbar .icon-btn { font-size: 12px; }
   .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
@@ -260,6 +269,23 @@
           </p>
         </div>
       </div>
+      <div class="settings-row" id="omdb-settings-row">
+        <button type="button" class="settings-toggle" id="omdb-settings-toggle">IMDb ratings — free OMDb key</button>
+        <div class="api-key-panel" id="omdb-key-panel">
+          <label for="omdb-key-input">OMDb API key — free, shows real IMDb ratings</label>
+          <input id="omdb-key-input" type="password" placeholder="Your OMDb API key" autocomplete="off" />
+          <div class="api-key-actions">
+            <button type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12px; font-size:12px;">Save key</button>
+            <button type="button" class="icon-btn" id="clear-omdb-key-btn">Clear</button>
+            <span id="omdb-key-status" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+          <p class="api-key-hint">
+            1. Request a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com/apikey.aspx</a> (choose the FREE tier)<br/>
+            2. Confirm it via the email OMDb sends you<br/>
+            3. Paste the key here. Stored only in your browser. Used to look up IMDb ratings for titles already found via TMDB.
+          </p>
+        </div>
+      </div>
     </form>
     <div id="result-area"></div>
     <div class="tabs">
@@ -270,12 +296,18 @@
       <button class="filter-btn active" data-filter="movie">Movies</button>
       <button class="filter-btn" data-filter="series">Series</button>
     </div>
+    <div class="list-search-row">
+      <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
+    </div>
     <div class="suggest-panel" id="suggest-panel" style="display:none;">
-      <div class="suggest-header">
-        <span class="suggest-title">🎬 Suggested for you</span>
-        <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
+      <div class="suggest-header" id="suggest-toggle">
+        <span class="suggest-title">🎬 Suggested for you<span class="suggest-count" id="suggest-count"></span></span>
+        <span class="suggest-header-actions">
+          <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
+          <span class="suggest-caret" id="suggest-caret">▸</span>
+        </span>
       </div>
-      <div id="suggest-body"></div>
+      <div id="suggest-body" style="display:none;"></div>
     </div>
     <div class="list-toolbar">
       <button class="icon-btn" id="export-btn">Export backup</button>
@@ -311,9 +343,11 @@
   const state = {
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
     searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', apiKeyFromCloud: false, lastQuery: '', saving: false,
-    suggestions: [], suggestState: 'idle', suggestError: ''
+    suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
+    omdbKey: '', omdbKeyFromCloud: false
   };
   const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
+  const imdbCache = {};
   const expandedIds = new Set();
   let saveTimer = null;
 
@@ -335,6 +369,9 @@
   const apiKeyInput = document.getElementById('api-key-input');
   const apiKeyPanel = document.getElementById('api-key-panel');
   const keyStatus = document.getElementById('key-status');
+  const omdbKeyInput = document.getElementById('omdb-key-input');
+  const omdbKeyPanel = document.getElementById('omdb-key-panel');
+  const omdbKeyStatus = document.getElementById('omdb-key-status');
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -395,6 +432,10 @@
           state.apiKey = data.apiKey;
           state.apiKeyFromCloud = true;
         }
+        if (typeof data.omdbKey === 'string' && data.omdbKey) {
+          state.omdbKey = data.omdbKey;
+          state.omdbKeyFromCloud = true;
+        }
       } else {
         const local = loadMoviesLocal();
         if (local.length) { state.movies = local; await saveToFirestore(true); }
@@ -411,10 +452,11 @@
       const ref = userDocRef();
       if (!ref) return;
       try {
-        await ref.set({ movies: state.movies, region: state.region, apiKey: state.apiKey || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        await ref.set({ movies: state.movies, region: state.region, apiKey: state.apiKey || '', omdbKey: state.omdbKey || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         trySave('movies', JSON.stringify(state.movies));
         trySave('region', state.region);
         saveApiKey(state.apiKey);
+        saveOmdbKey(state.omdbKey);
         clearStorageBanner();
       } catch (e) { console.error(e); showStorageBanner(); }
     };
@@ -429,6 +471,11 @@
   }
   function loadRegionLocal() { return tryLoad('region') || 'IN'; }
   function loadApiKey() { return tryLoad('tmdbKey') || ''; }
+  function loadOmdbKey() { return tryLoad('omdbKey') || ''; }
+  function saveOmdbKey(key) {
+    if (key) trySave('omdbKey', key);
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'omdbKey'); } catch (e) {}
+  }
   function loadDismissedSuggestions() {
     try { return new Set(JSON.parse(tryLoad('dismissedSuggestions') || '[]')); } catch (e) { return new Set(); }
   }
@@ -448,6 +495,12 @@
     else { keyStatus.textContent = 'No key set'; keyStatus.style.color = 'var(--text-muted)'; }
     const settingsRow = document.getElementById('settings-row');
     if (settingsRow) settingsRow.style.display = state.apiKey ? 'none' : '';
+  }
+  function updateOmdbKeyStatus() {
+    if (state.omdbKey) { omdbKeyStatus.textContent = 'Key saved ✓'; omdbKeyStatus.style.color = 'var(--free)'; }
+    else { omdbKeyStatus.textContent = 'No key set'; omdbKeyStatus.style.color = 'var(--text-muted)'; }
+    const omdbRow = document.getElementById('omdb-settings-row');
+    if (omdbRow) omdbRow.style.display = state.omdbKey ? 'none' : '';
   }
 
   function exportMovies() {
@@ -478,7 +531,7 @@
         };
         if (idx !== -1) state.movies[idx] = clean; else state.movies.push(clean);
       });
-      saveToFirestore(true); renderTabs(); renderList(); maybeAutoSuggest();
+      saveToFirestore(true); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings();
       alert('Imported ' + imported.length + ' title(s).');
     };
     reader.readAsText(file);
@@ -522,6 +575,71 @@
     add(regionData.flatrate, 'stream'); add(regionData.ads, 'free'); add(regionData.free, 'free');
     add(regionData.rent, 'rent'); add(regionData.buy, 'buy');
     return out;
+  }
+
+  // --- IMDb ratings (via OMDb) ----------------------------------------------
+  // TMDB doesn't expose real IMDb scores, so when an OMDb key is set we look
+  // up each title's IMDb id through TMDB (free, already-available data), then
+  // ask OMDb for the actual IMDb rating. Results are cached in-memory per
+  // tmdbId so a title is never looked up twice in one session.
+  async function omdbGetRating(imdbId) {
+    if (!state.omdbKey || !imdbId) return null;
+    try {
+      const url = new URL('https://www.omdbapi.com/');
+      url.searchParams.set('apikey', state.omdbKey.trim());
+      url.searchParams.set('i', imdbId);
+      const res = await fetch(url.toString());
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.Response === 'True' && data.imdbRating && data.imdbRating !== 'N/A') return data.imdbRating;
+      return null;
+    } catch (e) { return null; }
+  }
+  async function getImdbRating(mediaType, tmdbId) {
+    if (!state.omdbKey || !tmdbId) return null;
+    const key = mediaType + ':' + tmdbId;
+    if (Object.prototype.hasOwnProperty.call(imdbCache, key)) return imdbCache[key];
+    try {
+      let imdbId = null;
+      if (mediaType === 'series') {
+        const ext = await tmdbGet('/tv/' + tmdbId + '/external_ids');
+        imdbId = ext.imdb_id || null;
+      } else {
+        const det = await tmdbGet('/movie/' + tmdbId, { language: 'en-US' });
+        imdbId = det.imdb_id || null;
+      }
+      const rating = imdbId ? await omdbGetRating(imdbId) : null;
+      imdbCache[key] = rating;
+      return rating;
+    } catch (e) { imdbCache[key] = null; return null; }
+  }
+  function imdbBadgeHtml(rating) {
+    return rating ? '<span class="imdb-badge">IMDb ' + escapeHtml(rating) + '</span>' : '';
+  }
+  let imdbBackfillRunning = false;
+  async function backfillImdbRatings() {
+    if (!state.omdbKey || imdbBackfillRunning) return;
+    const candidates = state.movies.filter(m => m.tmdbId && m.imdbRating === undefined);
+    if (!candidates.length) return;
+    imdbBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          m.imdbRating = await getImdbRating(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId);
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { imdbBackfillRunning = false; }
+  }
+  async function attachImdbRatingsToSuggestions() {
+    if (!state.omdbKey || !state.suggestions.length) return;
+    await Promise.all(state.suggestions.map(async (s) => {
+      s.imdbRating = await getImdbRating(s.mediaType, s.tmdbId);
+    }));
+    renderSuggestPanel();
   }
 
   // --- "Suggested for you" recommendation engine ---------------------------
@@ -585,6 +703,7 @@
         .slice(0, 6)
         .map(x => x.data);
       state.suggestState = 'ready';
+      if (state.omdbKey) attachImdbRatingsToSuggestions();
     } catch (e) {
       console.error(e);
       state.suggestState = 'error';
@@ -619,12 +738,13 @@
     state.movies.unshift({
       id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
       mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
-      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion'
+      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
+      imdbRating: s.imdbRating !== undefined ? s.imdbRating : undefined
     });
     state.suggestions.splice(idx, 1);
     saveToFirestore();
-    state.activeTab = 'towatch'; state.mediaFilter = s.mediaType === 'series' ? 'series' : 'movie';
-    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    // Added quietly to To watch — deliberately doesn't touch state.activeTab/mediaFilter
+    // or scroll anywhere, so whatever the person is looking at stays put.
     renderTabs(); renderList(); renderSuggestPanel();
     if (s.mediaType === 'series') establishSeriesBaseline(finalId);
   }
@@ -632,10 +752,18 @@
   function renderSuggestPanel() {
     const panel = document.getElementById('suggest-panel');
     const body = document.getElementById('suggest-body');
+    const header = document.getElementById('suggest-toggle');
+    const caret = document.getElementById('suggest-caret');
+    const countEl = document.getElementById('suggest-count');
     if (!panel || !body) return;
     const libraryCount = state.movies.filter(m => m.tmdbId).length;
     if (!state.apiKey || libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
+    header.classList.toggle('is-open', state.suggestOpen);
+    caret.textContent = state.suggestOpen ? '▾' : '▸';
+    countEl.textContent = state.suggestions.length ? ' (' + state.suggestions.length + ')' : '';
+    body.style.display = state.suggestOpen ? 'block' : 'none';
+    if (!state.suggestOpen) return;
     if (state.suggestState === 'loading') {
       body.innerHTML = '<div class="suggest-status"><div class="spinner"></div><span>Finding what to watch next…</span></div>';
       return;
@@ -652,7 +780,7 @@
       const key = suggestionKey(s.mediaType, s.tmdbId);
       const img = isValidLink(s.posterLink) ? '<img class="s-poster" src="' + escapeHtml(s.posterLink) + '" alt="" />' : '<div class="s-poster"></div>';
       return '<div class="suggest-card">' + img +
-        '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + (s.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + '</p>' +
+        '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + (s.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + imdbBadgeHtml(s.imdbRating) + '</p>' +
         '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
         '<p class="s-summary">' + escapeHtml(s.summary || 'No summary available.') + '</p>' +
         '<div class="s-actions"><button class="btn filled" data-add="' + key + '">Add to watchlist</button><button class="icon-btn" data-dismiss="' + key + '">Not interested</button></div>' +
@@ -849,7 +977,7 @@
     }
     saveToFirestore();
     state.searchState = 'idle'; state.searchResult = null; input.value = '';
-    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest();
+    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings();
     if (needsBaseline) establishSeriesBaseline(finalId);
   }
 
@@ -861,9 +989,12 @@
   }
 
   function renderList() {
-    const items = state.movies.filter(m => m.status === state.activeTab && (m.mediaType || 'movie') === state.mediaFilter);
+    const q = state.listSearchQuery.trim().toLowerCase();
+    const items = state.movies.filter(m => m.status === state.activeTab && (m.mediaType || 'movie') === state.mediaFilter
+      && (!q || m.title.toLowerCase().includes(q)));
     if (!items.length) {
       const filterWord = state.mediaFilter === 'series' ? 'series' : 'movies';
+      if (q) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim()) + '”.</div>'; return; }
       listEl.innerHTML = state.activeTab === 'towatch'
         ? '<div class="empty-state">No ' + filterWord + ' booked yet.<br/>Search above to add one.</div>'
         : '<div class="empty-state">No ' + filterWord + ' watched yet.<br/>Once you finish one, mark it here.</div>';
@@ -907,7 +1038,7 @@
       }
       return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '"><div class="stub">' + (m.year || '—') + '</div><div class="body">' +
         '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
-        (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
+        (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + imdbBadgeHtml(m.imdbRating) + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
         pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
     }).join('');
   }
@@ -925,10 +1056,18 @@
     if (action === 'towatch') movie.status = 'towatch';
     if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
-    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest();
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest(); backfillImdbRatings();
   });
 
-  document.getElementById('suggest-refresh-btn').addEventListener('click', () => generateSuggestions());
+  document.getElementById('suggest-toggle').addEventListener('click', () => {
+    state.suggestOpen = !state.suggestOpen;
+    if (state.suggestOpen && state.suggestState === 'idle' && !state.suggestions.length) generateSuggestions();
+    else renderSuggestPanel();
+  });
+  document.getElementById('suggest-refresh-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    generateSuggestions();
+  });
   document.getElementById('suggest-body').addEventListener('click', (e) => {
     const addBtn = e.target.closest('[data-add]');
     if (addBtn) { addSuggestionToWatchlist(addBtn.getAttribute('data-add')); return; }
@@ -944,6 +1083,11 @@
     if (!btn) return;
     state.mediaFilter = btn.getAttribute('data-filter');
     document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderList();
+  });
+
+  document.getElementById('list-search').addEventListener('input', (e) => {
+    state.listSearchQuery = e.target.value;
     renderList();
   });
 
@@ -972,6 +1116,23 @@
     saveToFirestore(true);
     state.suggestions = []; state.suggestState = 'idle';
     renderSuggestPanel();
+  });
+
+  document.getElementById('omdb-settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    omdbKeyPanel.classList.toggle('open');
+  });
+  document.getElementById('save-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = omdbKeyInput.value.trim(); saveOmdbKey(state.omdbKey); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
+    backfillImdbRatings();
+    if (state.suggestions.length) attachImdbRatingsToSuggestions();
+  });
+  document.getElementById('clear-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = ''; omdbKeyInput.value = ''; saveOmdbKey(''); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
   });
 
   async function doSearch(title) {
@@ -1079,6 +1240,7 @@
       appRoot.style.display = 'flex';
       updateUserBar();
       state.apiKeyFromCloud = false;
+      state.omdbKeyFromCloud = false;
       await loadFromFirestore();
       if (!state.apiKeyFromCloud) {
         // Cloud had no saved key (new account, or a key saved before this feature existed
@@ -1087,14 +1249,21 @@
         const localKey = loadApiKey();
         if (localKey) { state.apiKey = localKey; saveToFirestore(true); }
       }
+      if (!state.omdbKeyFromCloud) {
+        const localOmdbKey = loadOmdbKey();
+        if (localOmdbKey) { state.omdbKey = localOmdbKey; saveToFirestore(true); }
+      }
       apiKeyInput.value = state.apiKey;
+      omdbKeyInput.value = state.omdbKey;
       if (!state.region) state.region = loadRegionLocal();
       applyRegionToControls();
       updateKeyStatus();
+      updateOmdbKeyStatus();
       renderTabs();
       renderList();
       renderNotifications();
       maybeAutoSuggest();
+      backfillImdbRatings();
       if (state.apiKey) checkAllSeriesUpdates();
     } else {
       state.user = null;
