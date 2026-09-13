@@ -130,12 +130,23 @@
   .icon-btn.primary { color: var(--gold); border-color: var(--gold); }
   .empty-state { text-align: center; color: var(--text-muted); font-size: 14px; padding: 40px 16px; line-height: 1.6; }
   .banner { font-size: 12px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; }
-  .update-toast { font-size: 13px; color: #16213e; background: var(--gold); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; font-weight: 600; }
   .update-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 12px; }
   .update-banner span { flex: 1 1 100%; font-weight: 600; }
+  .notif-wrap { position: absolute; top: 0; left: 0; }
+  .notif-bell { position: relative; background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer; padding: 4px 6px; color: var(--text); }
+  .notif-count { position: absolute; top: -3px; right: -3px; background: var(--red-stamp); color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; min-width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
+  .notif-dropdown { position: absolute; top: 32px; left: 0; width: 250px; max-height: 320px; overflow-y: auto; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); z-index: 30; padding: 6px; }
+  .notif-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+  .notif-item:last-child { margin-bottom: 0; }
+  .notif-item:hover, .notif-item:active { background: var(--gold-dim); }
+  .notif-item .notif-title { display: block; font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .notif-item .notif-detail { display: block; font-size: 11px; color: var(--text-muted); }
+  .notif-empty { padding: 14px 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
+  .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
   .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
   .list-toolbar .icon-btn { font-size: 12px; }
+  .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
   #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
   #auth-overlay.hidden { display: none; }
   .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
@@ -150,7 +161,6 @@
   .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
   .user-bar { position: absolute; top: 2px; right: 0; display: flex; align-items: center; gap: 6px; max-width: 150px; }
   .user-bar .user-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .user-bar img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--card-border); flex-shrink: 0; }
   .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; color: var(--text-muted); font-size: 11px; }
   .user-bar .logout-btn { background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 10px; padding: 2px 0; cursor: pointer; text-decoration: underline; flex-shrink: 0; }
   .user-bar .logout-btn:hover, .user-bar .logout-btn:active { color: var(--gold); }
@@ -185,9 +195,14 @@
       <p class="mq-logo">MARQUEE</p>
       <p class="mq-tagline">Find it, watch it, track it.</p>
     </div>
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notif-bell" aria-label="Notifications">
+        🔔<span class="notif-count" id="notif-count" style="display:none;">0</span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown" style="display:none;"></div>
+    </div>
     <div class="user-bar" id="user-bar">
       <div class="user-info">
-        <img id="user-avatar" src="" alt="" style="display:none;" />
         <span class="user-name" id="user-name">Signed in</span>
       </div>
       <button type="button" class="logout-btn" id="logout-btn">Sign out</button>
@@ -245,8 +260,8 @@
       <input type="file" id="import-file" accept="application/json" style="display:none;" />
     </div>
     <div id="storage-banner"></div>
-    <div id="update-toast" class="update-toast" style="display:none;"></div>
     <div id="list"></div>
+    <p class="footer-credit">Crafted by DesaiX</p>
   </div>
 </div>
 <script>
@@ -282,7 +297,6 @@
   const googleBtn = document.getElementById('google-signin-btn');
   const authErrorEl = document.getElementById('auth-error');
   const userNameEl = document.getElementById('user-name');
-  const userAvatarEl = document.getElementById('user-avatar');
   const logoutBtn = document.getElementById('logout-btn');
   const resultArea = document.getElementById('result-area');
   const listEl = document.getElementById('list');
@@ -339,8 +353,6 @@
   function updateUserBar() {
     if (!state.user) return;
     userNameEl.textContent = state.user.displayName || state.user.email || 'Signed in';
-    if (state.user.photoURL) { userAvatarEl.src = state.user.photoURL; userAvatarEl.style.display = 'block'; }
-    else userAvatarEl.style.display = 'none';
   }
 
   function userDocRef() { return state.user ? db.collection('users').doc(state.user.uid) : null; }
@@ -549,23 +561,34 @@
     const m2 = state.movies.find(mm => mm.id === id);
     if (!m2 || !res) return;
     if (res.latestKnown) m2.latestKnown = res.latestKnown;
-    if (res.newRelease) { m2.hasUpdate = true; m2.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season'; }
-    saveToFirestore(); renderList(); showUpdateToast();
+    if (res.newRelease) {
+      const wasWatched = m2.status === 'watched';
+      m2.hasUpdate = true;
+      m2.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+      if (wasWatched) m2.status = 'towatch';
+    }
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
   }
 
-  function showUpdateToast() {
+  function renderNotifications() {
+    const countEl = document.getElementById('notif-count');
+    const dropdown = document.getElementById('notif-dropdown');
+    if (!countEl || !dropdown) return;
     const updated = state.movies.filter(m => m.hasUpdate);
-    const toast = document.getElementById('update-toast');
-    if (!toast) return;
-    if (!updated.length) { toast.style.display = 'none'; toast.innerHTML = ''; return; }
-    toast.innerHTML = '🎬 New today: ' + updated.map(m => escapeHtml(m.title)).join(', ');
-    toast.style.display = 'block';
+    if (updated.length) { countEl.textContent = String(updated.length); countEl.style.display = 'flex'; }
+    else { countEl.style.display = 'none'; }
+    dropdown.innerHTML = updated.length
+      ? updated.map(m => '<div class="notif-item" data-id="' + m.id + '">' +
+          '<span class="notif-title">🆕 ' + escapeHtml(m.title) + '</span>' +
+          '<span class="notif-detail">' + escapeHtml(m.updateDetail || m.latestKnown || 'New episode/season') + '</span>' +
+          '</div>').join('')
+      : '<div class="notif-empty">No new episodes or seasons yet.</div>';
   }
 
   async function checkAllSeriesUpdates() {
     if (!state.apiKey) return;
     const seriesList = state.movies.filter(m => m.mediaType === 'series' && m.tmdbId);
-    if (!seriesList.length) return;
+    if (!seriesList.length) { renderNotifications(); return; }
     const results = await Promise.all(seriesList.map(m => checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))));
     let any = false;
     results.forEach(({ id, res }) => {
@@ -573,10 +596,16 @@
       const movie = state.movies.find(m => m.id === id);
       if (!movie) return;
       if (res.latestKnown) movie.latestKnown = res.latestKnown;
-      if (res.newRelease) { movie.hasUpdate = true; movie.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season'; any = true; }
+      if (res.newRelease) {
+        const wasWatched = movie.status === 'watched';
+        movie.hasUpdate = true;
+        movie.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+        if (wasWatched) movie.status = 'towatch';
+        any = true;
+      }
     });
-    if (any) { saveToFirestore(); renderList(); }
-    showUpdateToast();
+    if (any) { saveToFirestore(); renderTabs(); renderList(); }
+    renderNotifications();
   }
 
   async function fetchSeasonDetails(id) {
@@ -702,7 +731,7 @@
           detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '<p class="details-empty">No extra details available.</p>') + '</div>';
         }
       }
-      return '<div class="ticket"><div class="stub">' + (m.year || '—') + '</div><div class="body">' +
+      return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '"><div class="stub">' + (m.year || '—') + '</div><div class="body">' +
         '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
         (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
         pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
@@ -720,9 +749,9 @@
     if (!movie) return;
     if (action === 'watched') movie.status = 'watched';
     if (action === 'towatch') movie.status = 'towatch';
-    if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; showUpdateToast(); }
+    if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
-    saveToFirestore(); renderTabs(); renderList();
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
   });
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
@@ -829,6 +858,35 @@
   googleBtn.addEventListener('click', signInWithGoogle);
   logoutBtn.addEventListener('click', signOut);
 
+  const notifBell = document.getElementById('notif-bell');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  notifBell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notifDropdown.style.display = notifDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+  notifDropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.notif-item');
+    if (!item) return;
+    const id = item.getAttribute('data-id');
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return;
+    state.activeTab = 'towatch';
+    state.mediaFilter = m.mediaType === 'series' ? 'series' : 'movie';
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    expandedIds.add(id);
+    renderTabs(); renderList();
+    notifDropdown.style.display = 'none';
+    requestAnimationFrame(() => {
+      const el = listEl.querySelector('[data-ticket-id="' + id + '"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (notifDropdown.style.display === 'block' && !notifDropdown.contains(e.target) && e.target !== notifBell) {
+      notifDropdown.style.display = 'none';
+    }
+  });
+
   auth.onAuthStateChanged(async (user) => {
     if (user) {
       state.user = user;
@@ -850,6 +908,7 @@
       updateKeyStatus();
       renderTabs();
       renderList();
+      renderNotifications();
       if (state.apiKey) checkAllSeriesUpdates();
     } else {
       state.user = null;
