@@ -1,647 +1,198 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#12162A">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Marquee is a movie discovery app" />
+  <meta name="description" content="Marquee — find it, watch it, track it. Personal movie & series watchlist." />
   <title>Marquee</title>
+
+  <!-- PWA: manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- PWA: theme color (browser chrome / status bar) -->
   <meta name="theme-color" content="#12162A" />
-  <meta name="msapplication-TileColor" content="#12162A" />
+
+  <!-- iOS / Safari standalone app support -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Marquee" />
-  <meta name="application-name" content="Marquee" />
-  <meta name="format-detection" content="telephone=no" />
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+
+  <!-- Icons (Android / desktop / favicon) -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
-
   :root {
-    --bg: #12162A;
-    --bg-elevated: #1B2038;
-    --card-border: #33395C;
-    --gold: #E8B94D;
-    --gold-dim: rgba(232, 185, 77, 0.14);
-    --red-stamp: #C1443D;
-    --text: #F3F1EA;
-    --text-muted: #9AA0BE;
-    --stream: #E8B94D;
-    --rent: #7FB3D5;
-    --buy: #B7BCD6;
-    --free: #7FC29B;
+    --bg: #12162A; --bg-elevated: #1B2038; --card-border: #33395C;
+    --gold: #E8B94D; --gold-dim: rgba(232, 185, 77, 0.14); --red-stamp: #C1443D;
+    --text: #F3F1EA; --text-muted: #9AA0BE;
+    --stream: #E8B94D; --rent: #7FB3D5; --buy: #B7BCD6; --free: #7FC29B;
   }
-
   * { box-sizing: border-box; }
-
-  html {
-    background: #12162A;
-    color-scheme: dark;
-  }
-
   html, body {
     margin: 0;
     padding: 0;
-    background: #12162A;
-    color: var(--text);
+    background: var(--bg);
     min-height: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    -webkit-tap-highlight-color: transparent;
   }
-
-  body {
-    overscroll-behavior: none;
-    background: #12162A;
-  }
-
   #marquee-app {
     background: var(--bg);
     color: var(--text);
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
     min-height: 100dvh;
-    min-height: -webkit-fill-available;
-    padding: 28px 16px 60px;
-    padding-top: max(28px, env(safe-area-inset-top, 0px));
-    padding-bottom: max(60px, env(safe-area-inset-bottom, 0px));
-    padding-left: max(16px, env(safe-area-inset-left, 0px));
-    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding: calc(28px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
     display: flex;
     justify-content: center;
   }
-
-  #marquee-app .wrap {
-    width: 100%;
-    max-width: 440px;
-  }
-
+  #marquee-app .wrap { width: 100%; max-width: 440px; }
   .mq-header { text-align: center; margin-bottom: 24px; }
-
-  .bulbs {
-    display: flex;
-    justify-content: center;
-    gap: 7px;
-    margin-bottom: 10px;
-  }
-
-  .bulbs span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--gold);
-    opacity: 0.35;
-    animation: twinkle 2.6s ease-in-out infinite;
-  }
-
+  .bulbs { display: flex; justify-content: center; gap: 7px; margin-bottom: 10px; }
+  .bulbs span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); opacity: 0.35; animation: twinkle 2.6s ease-in-out infinite; }
   .bulbs span:nth-child(odd) { animation-delay: 0.3s; }
   .bulbs span:nth-child(3n) { animation-delay: 0.9s; }
   .bulbs span:nth-child(4n) { animation-delay: 1.4s; }
-
-  @keyframes twinkle {
-    0%, 100% { opacity: 0.25; }
-    50% { opacity: 1; }
-  }
-
-  .mq-logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 40px;
-    letter-spacing: 6px;
-    color: var(--gold);
-    line-height: 1;
-    margin: 0;
-  }
-
-  .mq-tagline {
-    color: var(--text-muted);
-    font-size: 13px;
-    margin: 6px 0 0;
-  }
-
-  .search-row {
-    display: flex;
-    gap: 8px;
-  }
-
+  @keyframes twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+  .mq-logo { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 6px; color: var(--gold); line-height: 1; margin: 0; }
+  .mq-tagline { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
+  .search-row { display: flex; gap: 8px; }
   .input-wrap { position: relative; flex: 1; }
-
-  .suggestions-dropdown {
-    display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    background: var(--bg-elevated);
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-    overflow: hidden;
-    z-index: 20;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-  }
-
-  .suggestion-item {
-    padding: 10px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--card-border);
-  }
+  .suggestions-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; z-index: 20; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+  .suggestion-item { padding: 10px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
   .suggestion-item:last-child { border-bottom: none; }
   .suggestion-item:active { background: var(--gold-dim); }
   .suggestion-loading { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
-
-  #movie-input {
-    width: 100%;
-    min-height: 46px;
-    padding: 0 14px;
-    border-radius: 8px;
-    border: 1px solid var(--card-border);
-    background: var(--bg-elevated);
-    color: var(--text);
-    font-size: 15px;
-    font-family: inherit;
-  }
-
-  #movie-input:focus, select:focus, .region-custom:focus, #api-key-input:focus {
-    outline: 2px solid var(--gold);
-    outline-offset: 1px;
-  }
-
+  #movie-input { width: 100%; min-height: 46px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 15px; font-family: inherit; }
+  #movie-input:focus, select:focus, .region-custom:focus, #api-key-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   #movie-input::placeholder { color: var(--text-muted); }
-
-  .find-btn {
-    min-height: 46px;
-    padding: 0 18px;
-    border-radius: 8px;
-    border: none;
-    background: var(--gold);
-    color: #1A1500;
-    font-weight: 700;
-    font-size: 15px;
-    font-family: inherit;
-    cursor: pointer;
-  }
-
+  .find-btn { min-height: 46px; padding: 0 18px; border-radius: 8px; border: none; background: var(--gold); color: #1A1500; font-weight: 700; font-size: 15px; font-family: inherit; cursor: pointer; }
   .find-btn:disabled { opacity: 0.6; cursor: default; }
-
-  .region-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
-  .region-row select, .region-custom {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--card-border);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    padding: 2px 4px;
-  }
-
-  .settings-row {
-    margin-top: 12px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  .settings-toggle {
-    background: none;
-    border: none;
-    color: var(--gold);
-    font-family: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 0;
-    text-decoration: underline;
-  }
-
-  .api-key-panel {
-    display: none;
-    margin-top: 8px;
-    padding: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-  }
-
+  .region-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text-muted); }
+  .region-row select, .region-custom { background: transparent; border: none; border-bottom: 1px solid var(--card-border); color: var(--text); font-family: inherit; font-size: 13px; padding: 2px 4px; }
+  .settings-row { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+  .settings-toggle { background: none; border: none; color: var(--gold); font-family: inherit; font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
+  .api-key-panel { display: none; margin-top: 8px; padding: 12px; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; }
   .api-key-panel.open { display: block; }
-
-  .api-key-panel label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    color: var(--text-muted);
-  }
-
-  #api-key-input {
-    width: 100%;
-    min-height: 40px;
-    padding: 0 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--bg);
-    color: var(--text);
-    font-size: 13px;
-    font-family: inherit;
-  }
-
-  .api-key-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 8px;
-    align-items: center;
-  }
-
-  .api-key-hint {
-    margin-top: 8px;
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--text-muted);
-  }
-
+  .api-key-panel label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--text-muted); }
+  #api-key-input { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--bg); color: var(--text); font-size: 13px; font-family: inherit; }
+  .api-key-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .api-key-hint { margin-top: 8px; font-size: 11px; line-height: 1.4; color: var(--text-muted); }
   .api-key-hint a { color: var(--gold); }
-
   #result-area { margin-top: 18px; }
-
-  .status-line {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--text-muted);
-    font-size: 14px;
-    padding: 14px 2px;
-  }
-
-  .spinner {
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    border: 2px solid var(--card-border);
-    border-top-color: var(--gold);
-    animation: spin 0.8s linear infinite;
-    flex-shrink: 0;
-  }
-
+  .status-line { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 14px; padding: 14px 2px; }
+  .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--card-border); border-top-color: var(--gold); animation: spin 0.8s linear infinite; flex-shrink: 0; }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  .error-box {
-    border: 1px solid var(--red-stamp);
-    border-radius: 8px;
-    padding: 14px;
-    font-size: 14px;
-    color: var(--text);
-  }
-
-  .error-box .retry-btn {
-    margin-top: 10px;
-    background: none;
-    border: 1px solid var(--red-stamp);
-    color: var(--text);
-    border-radius: 6px;
-    padding: 7px 12px;
-    font-family: inherit;
-    font-size: 13px;
-    cursor: pointer;
-  }
-
-  .result-card {
-    border: 1px solid var(--gold);
-    border-radius: 10px;
-    padding: 16px;
-    background: var(--gold-dim);
-    position: relative;
-  }
-
-  .result-card .dismiss {
-    position: absolute;
-    top: 10px; right: 10px;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 16px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 4px;
-  }
-
-  .poster-link {
-    display: inline-block;
-    margin-top: 4px;
-    font-size: 11px;
-    color: var(--gold);
-    text-decoration: underline;
-  }
-
-  .result-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 24px;
-    letter-spacing: 1px;
-    margin: 0 0 2px;
-    padding-right: 20px;
-  }
-
+  .error-box { border: 1px solid var(--red-stamp); border-radius: 8px; padding: 14px; font-size: 14px; color: var(--text); }
+  .error-box .retry-btn { margin-top: 10px; background: none; border: 1px solid var(--red-stamp); color: var(--text); border-radius: 6px; padding: 7px 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
+  .result-card { border: 1px solid var(--gold); border-radius: 10px; padding: 16px; background: var(--gold-dim); position: relative; }
+  .result-card .dismiss { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; line-height: 1; padding: 4px; }
+  .poster-link { display: inline-block; margin-top: 4px; font-size: 11px; color: var(--gold); text-decoration: underline; }
+  .result-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; margin: 0 0 2px; padding-right: 20px; }
   .result-year { color: var(--text-muted); font-size: 13px; }
-
-  .series-tag {
-    display: inline-block;
-    font-size: 10px;
-    font-family: 'Inter', sans-serif;
-    letter-spacing: 0.5px;
-    background: var(--gold);
-    color: #16213e;
-    padding: 1px 6px;
-    border-radius: 4px;
-    vertical-align: middle;
-    font-weight: 700;
-  }
-
-  .result-summary {
-    font-size: 14px;
-    line-height: 1.5;
-    margin: 10px 0 12px;
-    color: var(--text);
-  }
-
+  .series-tag { display: inline-block; font-size: 10px; font-family: 'Inter', sans-serif; letter-spacing: 0.5px; background: var(--gold); color: #16213e; padding: 1px 6px; border-radius: 4px; vertical-align: middle; font-weight: 700; }
+  .result-summary { font-size: 14px; line-height: 1.5; margin: 10px 0 12px; color: var(--text); }
   .platform-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-
-  .pill {
-    font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    border-left: 3px solid;
-    background: rgba(255,255,255,0.05);
-  }
-
-  .pill.stream { border-color: var(--stream); }
-  .pill.rent { border-color: var(--rent); }
-  .pill.buy { border-color: var(--buy); }
-  .pill.free { border-color: var(--free); }
-
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 20px; border-left: 3px solid; background: rgba(255,255,255,0.05); }
+  .pill.stream { border-color: var(--stream); } .pill.rent { border-color: var(--rent); } .pill.buy { border-color: var(--buy); } .pill.free { border-color: var(--free); }
   .no-platforms { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
-
   .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-
-  .btn {
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    border-radius: 7px;
-    padding: 9px 13px;
-    cursor: pointer;
-    border: 1px solid var(--gold);
-    background: transparent;
-    color: var(--text);
-  }
-
+  .btn { font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--gold); background: transparent; color: var(--text); }
   .btn.filled { background: var(--gold); color: #1A1500; border-color: var(--gold); }
-
-  .tabs {
-    display: flex;
-    margin-top: 26px;
-    border-bottom: 1px solid var(--card-border);
-  }
-
-  .tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 10px 4px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-  }
-
-  .tab-btn.active {
-    color: var(--gold);
-    border-bottom-color: var(--gold);
-  }
-
-  .media-filter {
-    display: flex;
-    gap: 6px;
-    margin-top: 10px;
-  }
-
-  .filter-btn {
-    background: var(--bg-elevated);
-    border: 1px solid var(--card-border);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 5px 12px;
-    border-radius: 999px;
-    cursor: pointer;
-  }
-
-  .filter-btn.active {
-    color: #16213e;
-    background: var(--gold);
-    border-color: var(--gold);
-  }
-
+  .tabs { display: flex; margin-top: 26px; border-bottom: 1px solid var(--card-border); }
+  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .media-filter { display: flex; gap: 6px; margin-top: 10px; }
+  .filter-btn { background: var(--bg-elevated); border: 1px solid var(--card-border); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+  .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
   #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-
-  .ticket {
-    position: relative;
-    display: flex;
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-    background: var(--bg-elevated);
-    overflow: hidden;
-  }
-
-  .ticket .stub {
-    width: 56px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    color: var(--text-muted);
-    border-right: 1px dashed var(--card-border);
-    position: relative;
-  }
-
-  .ticket .stub::before, .ticket .stub::after {
-    content: '';
-    position: absolute;
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    background: var(--bg);
-    right: -7px;
-  }
-  .ticket .stub::before { top: -6px; }
-  .ticket .stub::after { bottom: -6px; }
-
-  .ticket .body {
-    flex: 1;
-    padding: 12px;
-    min-width: 0;
-  }
-
-  .ticket .t-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    letter-spacing: 0.5px;
-    margin: 0 0 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    cursor: pointer;
-  }
-
-  .ticket .t-title .caret {
-    font-family: 'Inter', sans-serif;
-    color: var(--text-muted);
-    font-size: 12px;
-  }
-
-  .details-panel {
-    background: var(--bg-elevated);
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    font-size: 12px;
-    line-height: 1.5;
-  }
-
-  .details-summary { color: var(--text); margin: 0 0 8px; }
-  .details-empty { color: var(--text-muted); margin: 0; }
-
-  .season-list {
-    margin: 0 0 8px;
-    padding-left: 18px;
-    color: var(--text);
-  }
-  .season-list li { margin-bottom: 2px; }
-
-  .next-episode {
-    color: var(--gold);
-    font-weight: 600;
-    margin: 0 0 8px;
-  }
-
+  .ticket { position: relative; display: flex; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); overflow: hidden; }
+  .ticket .stub { width: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--text-muted); border-right: 1px dashed var(--card-border); position: relative; }
+  .ticket .stub::before, .ticket .stub::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); right: -7px; }
+  .ticket .stub::before { top: -6px; } .ticket .stub::after { bottom: -6px; }
+  .ticket .body { flex: 1; padding: 12px; min-width: 0; }
+  .ticket .t-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.5px; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .ticket .t-title .caret { font-family: 'Inter', sans-serif; color: var(--text-muted); font-size: 12px; }
+  .details-panel { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+  .details-summary { color: var(--text); margin: 0 0 8px; } .details-empty { color: var(--text-muted); margin: 0; }
+  .season-list { margin: 0 0 8px; padding-left: 18px; color: var(--text); } .season-list li { margin-bottom: 2px; }
+  .next-episode { color: var(--gold); font-weight: 600; margin: 0 0 8px; }
   .details-loading { color: var(--text-muted); }
-
   .ticket .t-platforms { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
   .ticket .t-platforms .pill { font-size: 11px; padding: 2px 8px; }
-
   .ticket .t-actions { display: flex; gap: 6px; }
-
-  .icon-btn {
-    background: none;
-    border: 1px solid var(--card-border);
-    color: var(--text-muted);
-    border-radius: 6px;
-    font-family: inherit;
-    font-size: 12px;
-    padding: 5px 9px;
-    cursor: pointer;
-  }
-
+  .icon-btn { background: none; border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 6px; font-family: inherit; font-size: 12px; padding: 5px 9px; cursor: pointer; }
   .icon-btn.primary { color: var(--gold); border-color: var(--gold); }
-
-  .empty-state {
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 14px;
-    padding: 40px 16px;
-    line-height: 1.6;
-  }
-
-  .banner {
-    font-size: 12px;
-    color: var(--text-muted);
-    background: var(--bg-elevated);
-    border: 1px solid var(--card-border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-top: 10px;
-    line-height: 1.5;
-  }
-
-  .update-toast {
-    font-size: 13px;
-    color: #16213e;
-    background: var(--gold);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-top: 10px;
-    line-height: 1.5;
-    font-weight: 600;
-  }
-
-  .update-banner {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    background: rgba(212, 175, 55, 0.12);
-    border: 1px solid var(--gold);
-    border-radius: 6px;
-    padding: 6px 8px;
-    margin-bottom: 8px;
-    font-size: 12px;
-  }
-
-  .update-banner span {
-    flex: 1 1 100%;
-    font-weight: 600;
-  }
-
-  .whatsapp-btn {
-    background: #25D366;
-    color: #0b0b0b;
-    border-color: #25D366;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .list-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 14px;
-  }
-
+  .empty-state { text-align: center; color: var(--text-muted); font-size: 14px; padding: 40px 16px; line-height: 1.6; }
+  .banner { font-size: 12px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; }
+  .update-toast { font-size: 13px; color: #16213e; background: var(--gold); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; font-weight: 600; }
+  .update-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 12px; }
+  .update-banner span { flex: 1 1 100%; font-weight: 600; }
+  .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
+  .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
   .list-toolbar .icon-btn { font-size: 12px; }
-
-  .attribution {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 28px;
-    line-height: 1.5;
-  }
+  .attribution { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; line-height: 1.5; }
   .attribution a { color: var(--gold); }
+  #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  #auth-overlay.hidden { display: none; }
+  .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+  .welcome-card .mq-logo { font-size: 36px; margin-bottom: 4px; }
+  .welcome-card h2 { font-size: 18px; font-weight: 600; margin: 12px 0 8px; color: var(--text); }
+  .welcome-card p { font-size: 14px; line-height: 1.55; color: var(--text-muted); margin: 0 0 10px; }
+  .welcome-features { text-align: left; font-size: 13px; color: var(--text); margin: 16px 0 20px; padding: 0 8px; }
+  .welcome-features li { margin-bottom: 6px; }
+  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: none; border-radius: 8px; background: #fff; color: #1f1f1f; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
+  .google-btn svg { width: 18px; height: 18px; }
+  .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
+  .user-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 10px; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; font-size: 12px; }
+  .user-bar .user-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .user-bar img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+  .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .user-bar .logout-btn { background: none; border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 6px; font-family: inherit; font-size: 11px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
   </style>
 </head>
 <body>
-<div id="marquee-app">
+<div id="auth-overlay">
+  <div class="welcome-card">
+    <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="mq-logo">MARQUEE</p>
+    <p class="mq-tagline">Find it, watch it, track it.</p>
+    <h2>Your personal movie & series watchlist</h2>
+    <p>Search titles, see where to stream / rent / buy in your region, keep To-watch & Watched lists, and get notified about new episodes.</p>
+    <ul class="welcome-features">
+      <li>Typeahead search powered by TMDB</li>
+      <li>Region-specific streaming options (JustWatch)</li>
+      <li>Series episode guides & “new today” alerts</li>
+      <li>Cloud backup via your Google account</li>
+      <li>100% free — no credit card ever</li>
+    </ul>
+    <button type="button" class="google-btn" id="google-signin-btn">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <p class="auth-error" id="auth-error" style="display:none;"></p>
+  </div>
+</div>
+<div id="marquee-app" style="display:none;">
   <div class="wrap">
     <div class="mq-header">
-      <div class="bulbs">
-        <span></span><span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
+      <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
       <p class="mq-logo">MARQUEE</p>
       <p class="mq-tagline">Find it, watch it, track it.</p>
     </div>
-
+    <div class="user-bar" id="user-bar">
+      <div class="user-info">
+        <img id="user-avatar" src="" alt="" style="display:none;" />
+        <span class="user-name" id="user-name">Signed in</span>
+      </div>
+      <button type="button" class="logout-btn" id="logout-btn">Sign out</button>
+    </div>
     <form id="search-form">
       <div class="search-row">
         <div class="input-wrap">
@@ -680,57 +231,64 @@
         </div>
       </div>
     </form>
-
     <div id="result-area"></div>
-
     <div class="tabs">
       <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
       <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
     </div>
-
     <div class="media-filter" id="media-filter">
       <button class="filter-btn active" data-filter="movie">Movies</button>
       <button class="filter-btn" data-filter="series">Series</button>
     </div>
-
     <div class="list-toolbar">
       <button class="icon-btn" id="export-btn">Export backup</button>
       <button class="icon-btn" id="import-btn">Import backup</button>
       <input type="file" id="import-file" accept="application/json" style="display:none;" />
     </div>
-
     <div id="storage-banner"></div>
     <div id="update-toast" class="update-toast" style="display:none;"></div>
-
     <div id="list"></div>
-
     <p class="attribution">
       This product uses the TMDB API but is not endorsed or certified by TMDB.<br/>
       Watch provider data from <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a> via TMDB.
     </p>
   </div>
 </div>
-
 <script>
+
 (function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyB1GY5r7fvUBgNcPif_vjULyf1Nz-izErQ",
+    authDomain: "marquee-b5cc8.firebaseapp.com",
+    projectId: "marquee-b5cc8",
+    storageBucket: "marquee-b5cc8.firebasestorage.app",
+    messagingSenderId: "762258886139",
+    appId: "1:762258886139:web:55d2047e4a95707e0e0f5e",
+    measurementId: "G-FKMBBESB3F"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
   const STORAGE_PREFIX = 'marquee_';
   const TMDB_BASE = 'https://api.themoviedb.org/3';
   const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 
   const state = {
-    movies: [],
-    region: 'IN',
-    activeTab: 'towatch',
-    mediaFilter: 'movie',
-    searchState: 'idle',
-    searchResult: null,
-    errorMsg: '',
-    apiKey: '',
-    lastQuery: ''
+    user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
+    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', lastQuery: '', saving: false
   };
-
   const expandedIds = new Set();
+  let saveTimer = null;
 
+  const authOverlay = document.getElementById('auth-overlay');
+  const appRoot = document.getElementById('marquee-app');
+  const googleBtn = document.getElementById('google-signin-btn');
+  const authErrorEl = document.getElementById('auth-error');
+  const userNameEl = document.getElementById('user-name');
+  const userAvatarEl = document.getElementById('user-avatar');
+  const logoutBtn = document.getElementById('logout-btn');
   const resultArea = document.getElementById('result-area');
   const listEl = document.getElementById('list');
   const form = document.getElementById('search-form');
@@ -745,289 +303,209 @@
   const keyStatus = document.getElementById('key-status');
 
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function platformLabel(type) { return { stream: 'Stream', rent: 'Rent', buy: 'Buy', free: 'Free' }[type] || 'Available'; }
+  function isValidLink(url) { return typeof url === 'string' && /^https?:\/\//i.test(url.trim()); }
+  function trySave(key, value) { try { localStorage.setItem(STORAGE_PREFIX + key, value); return true; } catch (e) { return false; } }
+  function tryLoad(key) { try { return localStorage.getItem(STORAGE_PREFIX + key); } catch (e) { return null; } }
+  function showStorageBanner() {
+    const banner = document.getElementById('storage-banner');
+    if (banner) { banner.innerHTML = "Couldn’t save. Use <strong>Export backup</strong>."; banner.classList.add('banner'); }
+  }
+  function clearStorageBanner() {
+    const banner = document.getElementById('storage-banner');
+    if (banner) { banner.innerHTML = ''; banner.classList.remove('banner'); }
   }
 
-  function platformLabel(type) {
-    return { stream: 'Stream', rent: 'Rent', buy: 'Buy', free: 'Free' }[type] || 'Available';
-  }
+  function showAuthError(msg) { authErrorEl.textContent = msg; authErrorEl.style.display = 'block'; }
+  function clearAuthError() { authErrorEl.textContent = ''; authErrorEl.style.display = 'none'; }
 
-  function isValidLink(url) {
-    return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
-  }
-
-  function trySave(key, value) {
+  async function signInWithGoogle() {
+    clearAuthError();
+    googleBtn.disabled = true;
+    googleBtn.textContent = 'Signing in…';
     try {
-      localStorage.setItem(STORAGE_PREFIX + key, value);
-      return true;
-    } catch (e) {
-      console.error('localStorage save failed', e);
-      return false;
+      await auth.signInWithPopup(googleProvider);
+    } catch (err) {
+      console.error(err);
+      let msg = 'Sign-in failed. Please try again.';
+      if (err.code === 'auth/popup-closed-by-user') msg = 'Sign-in cancelled.';
+      else if (err.code === 'auth/popup-blocked') msg = 'Popup blocked — allow popups for this site.';
+      else if (err.message) msg = err.message;
+      showAuthError(msg);
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
     }
   }
 
-  function tryLoad(key) {
+  async function signOut() { try { await auth.signOut(); } catch (e) { console.error(e); } }
+
+  function updateUserBar() {
+    if (!state.user) return;
+    userNameEl.textContent = state.user.displayName || state.user.email || 'Signed in';
+    if (state.user.photoURL) { userAvatarEl.src = state.user.photoURL; userAvatarEl.style.display = 'block'; }
+    else userAvatarEl.style.display = 'none';
+  }
+
+  function userDocRef() { return state.user ? db.collection('users').doc(state.user.uid) : null; }
+
+  async function loadFromFirestore() {
+    const ref = userDocRef();
+    if (!ref) return;
     try {
-      return localStorage.getItem(STORAGE_PREFIX + key);
+      const snap = await ref.get();
+      if (snap.exists) {
+        const data = snap.data();
+        if (Array.isArray(data.movies)) state.movies = data.movies;
+        if (data.region) state.region = data.region;
+      } else {
+        const local = loadMoviesLocal();
+        if (local.length) { state.movies = local; await saveToFirestore(true); }
+      }
     } catch (e) {
-      return null;
+      console.error(e);
+      state.movies = loadMoviesLocal();
     }
   }
 
-  function loadMovies() {
+  async function saveToFirestore(immediate) {
+    if (!state.user) return;
+    const doSave = async () => {
+      const ref = userDocRef();
+      if (!ref) return;
+      try {
+        await ref.set({ movies: state.movies, region: state.region, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        trySave('movies', JSON.stringify(state.movies));
+        trySave('region', state.region);
+        clearStorageBanner();
+      } catch (e) { console.error(e); showStorageBanner(); }
+    };
+    if (immediate) { clearTimeout(saveTimer); await doSave(); }
+    else { clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
+  }
+
+  function loadMoviesLocal() {
     const raw = tryLoad('movies');
     if (!raw) return [];
     try { return JSON.parse(raw); } catch (e) { return []; }
   }
-
-  function saveMovies() {
-    const ok = trySave('movies', JSON.stringify(state.movies));
-    if (!ok) showStorageBanner(); else clearStorageBanner();
-  }
-
-  function loadRegion() {
-    return tryLoad('region') || 'IN';
-  }
-
-  function saveRegion() {
-    trySave('region', state.region);
-  }
-
-  function loadApiKey() {
-    return tryLoad('tmdbKey') || '';
-  }
-
+  function loadRegionLocal() { return tryLoad('region') || 'IN'; }
+  function loadApiKey() { return tryLoad('tmdbKey') || ''; }
   function saveApiKey(key) {
     if (key) trySave('tmdbKey', key);
-    else {
-      try { localStorage.removeItem(STORAGE_PREFIX + 'tmdbKey'); } catch (e) {}
-    }
-  }
-
-  function showStorageBanner() {
-    const banner = document.getElementById('storage-banner');
-    if (banner) {
-      banner.innerHTML = "Couldn’t save to this browser’s storage. Use <strong>Export backup</strong> to keep a copy.";
-      banner.classList.add('banner');
-    }
-  }
-
-  function clearStorageBanner() {
-    const banner = document.getElementById('storage-banner');
-    if (banner) {
-      banner.innerHTML = '';
-      banner.classList.remove('banner');
-    }
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'tmdbKey'); } catch (e) {}
   }
 
   function applyRegionToControls() {
-    const known = ['IN', 'US', 'GB', 'CA', 'AU'];
-    if (known.includes(state.region)) {
-      regionSelect.value = state.region;
-      regionCustom.style.display = 'none';
-    } else {
-      regionSelect.value = 'Other';
-      regionCustom.style.display = 'inline-block';
-      regionCustom.value = state.region;
-    }
+    const known = ['IN','US','GB','CA','AU'];
+    if (known.includes(state.region)) { regionSelect.value = state.region; regionCustom.style.display = 'none'; }
+    else { regionSelect.value = 'Other'; regionCustom.style.display = 'inline-block'; regionCustom.value = state.region; }
   }
-
   function updateKeyStatus() {
-    if (state.apiKey) {
-      keyStatus.textContent = 'Key saved ✓';
-      keyStatus.style.color = 'var(--free)';
-    } else {
-      keyStatus.textContent = 'No key set';
-      keyStatus.style.color = 'var(--text-muted)';
-    }
+    if (state.apiKey) { keyStatus.textContent = 'Key saved ✓'; keyStatus.style.color = 'var(--free)'; }
+    else { keyStatus.textContent = 'No key set'; keyStatus.style.color = 'var(--text-muted)'; }
   }
 
   function exportMovies() {
-    const dataStr = JSON.stringify(state.movies, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(state.movies, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'marquee-watchlist.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = 'marquee-watchlist.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   }
 
   function importMoviesFromFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
       let imported;
-      try {
-        imported = JSON.parse(reader.result);
-        if (!Array.isArray(imported)) throw new Error('not an array');
-      } catch (e) {
-        alert("That file doesn't look like a Marquee backup.");
-        return;
-      }
+      try { imported = JSON.parse(reader.result); if (!Array.isArray(imported)) throw new Error(); }
+      catch (e) { alert("That file doesn't look like a Marquee backup."); return; }
       imported.forEach(m => {
         if (!m || !m.title) return;
-        const existingIdx = state.movies.findIndex(x =>
-          x.title.toLowerCase() === String(m.title).toLowerCase() && x.year === (m.year || '')
-        );
+        const idx = state.movies.findIndex(x => x.title.toLowerCase() === String(m.title).toLowerCase() && x.year === (m.year || ''));
         const clean = {
-          id: (existingIdx !== -1) ? state.movies[existingIdx].id : (Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
-          title: m.title,
-          year: m.year || '',
-          summary: m.summary || '',
+          id: idx !== -1 ? state.movies[idx].id : (Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
+          title: m.title, year: m.year || '', summary: m.summary || '',
           platforms: Array.isArray(m.platforms) ? m.platforms : [],
-          status: (m.status === 'watched') ? 'watched' : 'towatch',
-          mediaType: m.mediaType || 'movie',
-          posterLink: m.posterLink || '',
-          tmdbId: m.tmdbId || null,
-          latestKnown: m.latestKnown || '',
-          hasUpdate: !!m.hasUpdate,
-          updateDetail: m.updateDetail || '',
+          status: m.status === 'watched' ? 'watched' : 'towatch',
+          mediaType: m.mediaType || 'movie', posterLink: m.posterLink || '',
+          tmdbId: m.tmdbId || null, latestKnown: m.latestKnown || '',
+          hasUpdate: !!m.hasUpdate, updateDetail: m.updateDetail || '',
           addedAt: m.addedAt || new Date().toISOString()
         };
-        if (existingIdx !== -1) state.movies[existingIdx] = clean;
-        else state.movies.push(clean);
+        if (idx !== -1) state.movies[idx] = clean; else state.movies.push(clean);
       });
-      saveMovies();
-      renderTabs();
-      renderList();
+      saveToFirestore(true); renderTabs(); renderList();
       alert('Imported ' + imported.length + ' title(s).');
     };
     reader.readAsText(file);
   }
 
   function requireApiKey() {
-    if (!state.apiKey || !state.apiKey.trim()) {
-      throw Object.assign(new Error('API key required'), { needsKey: true });
-    }
+    if (!state.apiKey || !state.apiKey.trim()) throw Object.assign(new Error('API key required'), { needsKey: true });
   }
-
   async function tmdbGet(path, params) {
     requireApiKey();
     const url = new URL(TMDB_BASE + path);
     url.searchParams.set('api_key', state.apiKey.trim());
-    if (params) {
-      Object.keys(params).forEach(k => {
-        if (params[k] !== undefined && params[k] !== null) url.searchParams.set(k, params[k]);
-      });
-    }
+    if (params) Object.keys(params).forEach(k => { if (params[k] != null) url.searchParams.set(k, params[k]); });
     const response = await fetch(url.toString());
     if (!response.ok) {
       let detail = '';
-      try {
-        const errBody = await response.json();
-        detail = errBody.status_message || '';
-      } catch (e) {}
+      try { detail = (await response.json()).status_message || ''; } catch (e) {}
       const err = new Error('HTTP ' + response.status + (detail ? ': ' + detail : ''));
-      err.status = response.status;
-      throw err;
+      err.status = response.status; throw err;
     }
     return response.json();
   }
-
-  function yearFromDate(d) {
-    if (!d || typeof d !== 'string') return '';
-    return d.slice(0, 4) || '';
-  }
-
+  function yearFromDate(d) { return (d && typeof d === 'string') ? d.slice(0, 4) : ''; }
   function mapProviders(regionData) {
     if (!regionData) return [];
-    const out = [];
-    const seen = new Set();
+    const out = [], seen = new Set();
     function add(list, type) {
       (list || []).forEach(p => {
         const key = p.provider_name + type;
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push({ name: p.provider_name, type: type });
+        if (seen.has(key)) return; seen.add(key);
+        out.push({ name: p.provider_name, type });
       });
     }
-    add(regionData.flatrate, 'stream');
-    add(regionData.ads, 'free');
-    add(regionData.free, 'free');
-    add(regionData.rent, 'rent');
-    add(regionData.buy, 'buy');
+    add(regionData.flatrate, 'stream'); add(regionData.ads, 'free'); add(regionData.free, 'free');
+    add(regionData.rent, 'rent'); add(regionData.buy, 'buy');
     return out;
   }
 
   async function searchMovie(title, regionCode) {
-    const multi = await tmdbGet('/search/multi', {
-      query: title,
-      include_adult: 'false',
-      language: 'en-US',
-      page: 1
-    });
-
-    const results = (multi.results || []).filter(r =>
-      r.media_type === 'movie' || r.media_type === 'tv'
-    );
-
-    if (results.length === 0) {
-      return {
-        title: title,
-        year: '',
-        mediaType: 'movie',
-        summary: "Couldn't find this title.",
-        posterLink: '',
-        platforms: [],
-        tmdbId: null
-      };
-    }
-
+    const multi = await tmdbGet('/search/multi', { query: title, include_adult: 'false', language: 'en-US', page: 1 });
+    const results = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+    if (!results.length) return { title, year: '', mediaType: 'movie', summary: "Couldn't find this title.", posterLink: '', platforms: [], tmdbId: null };
     const best = results[0];
     const isTv = best.media_type === 'tv';
     const id = best.id;
     const mediaType = isTv ? 'series' : 'movie';
-
     const detailPath = isTv ? '/tv/' + id : '/movie/' + id;
     const detail = await tmdbGet(detailPath, { language: 'en-US' });
-
     let platforms = [];
     try {
       const providers = await tmdbGet(detailPath + '/watch/providers');
-      const regionData = providers.results && providers.results[regionCode];
-      platforms = mapProviders(regionData);
-    } catch (e) {
-      console.warn('Providers fetch failed', e);
-    }
-
-    const year = isTv
-      ? yearFromDate(detail.first_air_date)
-      : yearFromDate(detail.release_date);
-
+      platforms = mapProviders(providers.results && providers.results[regionCode]);
+    } catch (e) {}
+    const year = isTv ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
     const posterPath = detail.poster_path || best.poster_path;
-    const posterLink = posterPath ? (TMDB_IMG + posterPath) : '';
-
     return {
       title: isTv ? (detail.name || best.name) : (detail.title || best.title),
-      year: year,
-      mediaType: mediaType,
+      year, mediaType,
       summary: (detail.overview || best.overview || '').trim() || 'No summary available.',
-      posterLink: posterLink,
-      platforms: platforms,
-      tmdbId: id
+      posterLink: posterPath ? TMDB_IMG + posterPath : '',
+      platforms, tmdbId: id
     };
   }
 
   function friendlySearchError(err) {
-    if (err && err.needsKey) {
-      return "Add a free TMDB API key in the settings above to search.";
-    }
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      return "You look offline — check your connection and try again.";
-    }
-    if (err && err.status === 401) {
-      return "API key looks invalid. Use the v3 API Key (not the Read Access Token).";
-    }
-    if (err && err.status === 429) {
-      return "Too many requests — wait a few seconds and try again.";
-    }
-    if (err && err.status >= 500) {
-      return "TMDB is having a moment — try again shortly.";
-    }
+    if (err && err.needsKey) return "Add a free TMDB API key in the settings above to search.";
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return "You look offline — check your connection and try again.";
+    if (err && err.status === 401) return "API key looks invalid. Use the v3 API Key (not the Read Access Token).";
+    if (err && err.status === 429) return "Too many requests — wait a few seconds and try again.";
+    if (err && err.status >= 500) return "TMDB is having a moment — try again shortly.";
     return "Couldn't reach the box office. Check your connection and try again.";
   }
 
@@ -1035,91 +513,51 @@
     if (!movie.tmdbId) return null;
     try {
       const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
-      const seasons = (detail.seasons || [])
-        .filter(s => s.season_number > 0)
-        .map(s => ({
-          season: s.season_number,
-          episodes: s.episode_count || 0
-        }));
-
+      const seasons = (detail.seasons || []).filter(s => s.season_number > 0).map(s => ({ season: s.season_number, episodes: s.episode_count || 0 }));
       let nextEpisode = 'No new season announced yet';
       if (detail.next_episode_to_air) {
         const n = detail.next_episode_to_air;
-        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number +
-          (n.air_date ? ' · ' + n.air_date : '');
-      } else if (detail.status === 'Ended' || detail.status === 'Canceled') {
-        nextEpisode = 'Series ended';
-      } else if (detail.last_episode_to_air) {
+        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number + (n.air_date ? ' · ' + n.air_date : '');
+      } else if (detail.status === 'Ended' || detail.status === 'Canceled') nextEpisode = 'Series ended';
+      else if (detail.last_episode_to_air) {
         const l = detail.last_episode_to_air;
-        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number +
-          (l.air_date ? ' (' + l.air_date + ')' : '');
+        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number + (l.air_date ? ' (' + l.air_date + ')' : '');
       }
-
-      return { seasons: seasons, nextEpisode: nextEpisode };
-    } catch (e) {
-      console.error('Season details failed', e);
-      return null;
-    }
+      return { seasons, nextEpisode };
+    } catch (e) { return null; }
   }
 
   async function checkOneSeriesLatest(movie) {
     if (!movie.tmdbId) return null;
     try {
       const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
-      const last = detail.last_episode_to_air;
-      const next = detail.next_episode_to_air;
-      const latestKnown = last
-        ? ('Season ' + last.season_number + (last.episode_number ? ', Ep ' + last.episode_number : ''))
-        : (detail.number_of_seasons ? ('Season ' + detail.number_of_seasons) : '');
-
-      const today = new Date();
-      const todayStr = today.toISOString().slice(0, 10);
-      const yesterday = new Date(today.getTime() - 86400000).toISOString().slice(0, 10);
-
-      let newRelease = false;
-      let releaseDetail = '';
-      if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) {
-        newRelease = true;
-        releaseDetail = 'S' + last.season_number + 'E' + last.episode_number;
-      }
-      if (next && next.air_date && (next.air_date === todayStr || next.air_date === yesterday)) {
-        newRelease = true;
-        releaseDetail = 'S' + next.season_number + 'E' + next.episode_number;
-      }
-
-      return { newRelease: newRelease, releaseDetail: releaseDetail, latestKnown: latestKnown };
-    } catch (e) {
-      console.error('Series update check failed', e);
-      return null;
-    }
+      const last = detail.last_episode_to_air, next = detail.next_episode_to_air;
+      const latestKnown = last ? ('Season ' + last.season_number + (last.episode_number ? ', Ep ' + last.episode_number : '')) : (detail.number_of_seasons ? ('Season ' + detail.number_of_seasons) : '');
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let newRelease = false, releaseDetail = '';
+      if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + last.season_number + 'E' + last.episode_number; }
+      if (next && next.air_date && (next.air_date === todayStr || next.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + next.season_number + 'E' + next.episode_number; }
+      return { newRelease, releaseDetail, latestKnown };
+    } catch (e) { return null; }
   }
 
   async function establishSeriesBaseline(id) {
     const movie = state.movies.find(m => m.id === id);
-    if (!movie || movie.mediaType !== 'series' || movie.latestKnown || !movie.tmdbId) return;
-    if (!state.apiKey) return;
+    if (!movie || movie.mediaType !== 'series' || movie.latestKnown || !movie.tmdbId || !state.apiKey) return;
     const res = await checkOneSeriesLatest(movie);
     const m2 = state.movies.find(mm => mm.id === id);
     if (!m2 || !res) return;
     if (res.latestKnown) m2.latestKnown = res.latestKnown;
-    if (res.newRelease) {
-      m2.hasUpdate = true;
-      m2.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season';
-    }
-    saveMovies();
-    renderList();
-    showUpdateToast();
+    if (res.newRelease) { m2.hasUpdate = true; m2.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season'; }
+    saveToFirestore(); renderList(); showUpdateToast();
   }
 
   function showUpdateToast() {
     const updated = state.movies.filter(m => m.hasUpdate);
     const toast = document.getElementById('update-toast');
     if (!toast) return;
-    if (updated.length === 0) {
-      toast.style.display = 'none';
-      toast.innerHTML = '';
-      return;
-    }
+    if (!updated.length) { toast.style.display = 'none'; toast.innerHTML = ''; return; }
     toast.innerHTML = '🎬 New today: ' + updated.map(m => escapeHtml(m.title)).join(', ');
     toast.style.display = 'block';
   }
@@ -1127,108 +565,62 @@
   async function checkAllSeriesUpdates() {
     if (!state.apiKey) return;
     const seriesList = state.movies.filter(m => m.mediaType === 'series' && m.tmdbId);
-    if (seriesList.length === 0) return;
-    const results = await Promise.all(seriesList.map(m =>
-      checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))
-    ));
-    let anyUpdate = false;
+    if (!seriesList.length) return;
+    const results = await Promise.all(seriesList.map(m => checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))));
+    let any = false;
     results.forEach(({ id, res }) => {
       if (!res) return;
       const movie = state.movies.find(m => m.id === id);
       if (!movie) return;
       if (res.latestKnown) movie.latestKnown = res.latestKnown;
-      if (res.newRelease) {
-        movie.hasUpdate = true;
-        movie.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season';
-        anyUpdate = true;
-      }
+      if (res.newRelease) { movie.hasUpdate = true; movie.updateDetail = res.releaseDetail || res.latestKnown || 'New episode/season'; any = true; }
     });
-    if (anyUpdate) {
-      saveMovies();
-      renderList();
-    }
+    if (any) { saveToFirestore(); renderList(); }
     showUpdateToast();
   }
 
   async function fetchSeasonDetails(id) {
     const movie = state.movies.find(m => m.id === id);
     if (!movie) return;
-    movie.seasonDetailsLoading = true;
-    renderList();
+    movie.seasonDetailsLoading = true; renderList();
     const result = await getSeasonDetails(movie);
     const m2 = state.movies.find(mm => mm.id === id);
     if (!m2) return;
     m2.seasonDetailsLoading = false;
-    if (result) {
-      m2.seasonDetails = result;
-      saveMovies();
-    }
+    if (result) { m2.seasonDetails = result; saveToFirestore(); }
     renderList();
   }
 
   function toggleDetails(id) {
-    if (expandedIds.has(id)) {
-      expandedIds.delete(id);
-      renderList();
-      return;
-    }
-    expandedIds.add(id);
-    renderList();
+    if (expandedIds.has(id)) { expandedIds.delete(id); renderList(); return; }
+    expandedIds.add(id); renderList();
     const movie = state.movies.find(m => m.id === id);
-    if (movie && movie.mediaType === 'series' && !movie.seasonDetails && !movie.seasonDetailsLoading && state.apiKey && movie.tmdbId) {
-      fetchSeasonDetails(id);
-    }
+    if (movie && movie.mediaType === 'series' && !movie.seasonDetails && !movie.seasonDetailsLoading && state.apiKey && movie.tmdbId) fetchSeasonDetails(id);
   }
 
   function renderResult() {
-    if (state.searchState === 'idle') {
-      resultArea.innerHTML = '';
-      return;
-    }
+    if (state.searchState === 'idle') { resultArea.innerHTML = ''; return; }
     if (state.searchState === 'loading') {
-      resultArea.innerHTML =
-        '<div class="status-line"><div class="spinner"></div><span>Checking showtimes…</span></div>';
+      resultArea.innerHTML = '<div class="status-line"><div class="spinner"></div><span>Checking showtimes…</span></div>';
       return;
     }
     if (state.searchState === 'error') {
-      resultArea.innerHTML =
-        '<div class="error-box">' + escapeHtml(state.errorMsg) +
-        '<div><button class="retry-btn" id="retry-btn">Try again</button></div></div>';
-      document.getElementById('retry-btn').addEventListener('click', () => {
-        doSearch(state.lastQuery);
-      });
+      resultArea.innerHTML = '<div class="error-box">' + escapeHtml(state.errorMsg) + '<div><button class="retry-btn" id="retry-btn">Try again</button></div></div>';
+      document.getElementById('retry-btn').addEventListener('click', () => doSearch(state.lastQuery));
       return;
     }
     if (state.searchState === 'result') {
       const r = state.searchResult;
       const pillsHtml = (r.platforms && r.platforms.length)
-        ? '<div class="platform-pills">' + r.platforms.map(p =>
-            '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + ' · ' + platformLabel(p.type) + '</span>'
-          ).join('') + '</div>'
+        ? '<div class="platform-pills">' + r.platforms.map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + ' · ' + platformLabel(p.type) + '</span>').join('') + '</div>'
         : '<div class="no-platforms">No streaming, rental, or purchase options found for this region.</div>';
-
-      const posterLinkHtml = isValidLink(r.posterLink)
-        ? '<a class="poster-link" href="' + escapeHtml(r.posterLink) + '" target="_blank" rel="noopener">View poster ↗</a>'
-        : '';
-
+      const posterLinkHtml = isValidLink(r.posterLink) ? '<a class="poster-link" href="' + escapeHtml(r.posterLink) + '" target="_blank" rel="noopener">View poster ↗</a>' : '';
       resultArea.innerHTML =
-        '<div class="result-card">' +
-          '<button class="dismiss" id="dismiss-btn" aria-label="Dismiss">✕</button>' +
-          '<p class="result-title">' + escapeHtml(r.title) + (r.year ? ' <span class="result-year">(' + escapeHtml(r.year) + ')</span>' : '') + (r.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + '</p>' +
-          posterLinkHtml +
-          '<p class="result-summary">' + escapeHtml(r.summary || '') + '</p>' +
-          pillsHtml +
-          '<div class="result-actions">' +
-            '<button class="btn filled" id="add-towatch">Add to watchlist</button>' +
-            '<button class="btn" id="add-watched">Mark as watched</button>' +
-          '</div>' +
-        '</div>';
-
-      document.getElementById('dismiss-btn').addEventListener('click', () => {
-        state.searchState = 'idle';
-        state.searchResult = null;
-        renderResult();
-      });
+        '<div class="result-card"><button class="dismiss" id="dismiss-btn" aria-label="Dismiss">✕</button>' +
+        '<p class="result-title">' + escapeHtml(r.title) + (r.year ? ' <span class="result-year">(' + escapeHtml(r.year) + ')</span>' : '') + (r.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + '</p>' +
+        posterLinkHtml + '<p class="result-summary">' + escapeHtml(r.summary || '') + '</p>' + pillsHtml +
+        '<div class="result-actions"><button class="btn filled" id="add-towatch">Add to watchlist</button><button class="btn" id="add-watched">Mark as watched</button></div></div>';
+      document.getElementById('dismiss-btn').addEventListener('click', () => { state.searchState = 'idle'; state.searchResult = null; renderResult(); });
       document.getElementById('add-towatch').addEventListener('click', () => addResultToList('towatch'));
       document.getElementById('add-watched').addEventListener('click', () => addResultToList('watched'));
     }
@@ -1236,146 +628,84 @@
 
   function addResultToList(status) {
     const r = state.searchResult;
-    const existingIdx = state.movies.findIndex(m =>
-      m.title.toLowerCase() === r.title.toLowerCase() && m.year === r.year
-    );
-    let finalId;
-    let needsBaseline = false;
+    const existingIdx = state.movies.findIndex(m => m.title.toLowerCase() === r.title.toLowerCase() && m.year === r.year);
+    let finalId, needsBaseline = false;
     if (existingIdx !== -1) {
-      state.movies[existingIdx].status = status;
-      state.movies[existingIdx].platforms = r.platforms || [];
-      state.movies[existingIdx].summary = r.summary || '';
-      state.movies[existingIdx].posterLink = r.posterLink || '';
-      state.movies[existingIdx].mediaType = r.mediaType || 'movie';
-      state.movies[existingIdx].tmdbId = r.tmdbId || state.movies[existingIdx].tmdbId;
-      finalId = state.movies[existingIdx].id;
-      needsBaseline = state.movies[existingIdx].mediaType === 'series' && !state.movies[existingIdx].latestKnown;
+      const m = state.movies[existingIdx];
+      m.status = status; m.platforms = r.platforms || []; m.summary = r.summary || ''; m.posterLink = r.posterLink || '';
+      m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId;
+      finalId = m.id; needsBaseline = m.mediaType === 'series' && !m.latestKnown;
     } else {
       finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       needsBaseline = (r.mediaType || 'movie') === 'series';
       state.movies.unshift({
-        id: finalId,
-        title: r.title,
-        year: r.year || '',
-        summary: r.summary || '',
-        posterLink: r.posterLink || '',
-        mediaType: r.mediaType || 'movie',
-        tmdbId: r.tmdbId || null,
-        latestKnown: '',
-        hasUpdate: false,
-        platforms: r.platforms || [],
-        status: status,
-        addedAt: new Date().toISOString()
+        id: finalId, title: r.title, year: r.year || '', summary: r.summary || '', posterLink: r.posterLink || '',
+        mediaType: r.mediaType || 'movie', tmdbId: r.tmdbId || null, latestKnown: '', hasUpdate: false,
+        platforms: r.platforms || [], status, addedAt: new Date().toISOString()
       });
     }
-    saveMovies();
-    state.searchState = 'idle';
-    state.searchResult = null;
-    input.value = '';
-    state.activeTab = status;
-    renderResult();
-    renderTabs();
-    renderList();
+    saveToFirestore();
+    state.searchState = 'idle'; state.searchResult = null; input.value = '';
+    state.activeTab = status; renderResult(); renderTabs(); renderList();
     if (needsBaseline) establishSeriesBaseline(finalId);
   }
 
   function renderTabs() {
-    const toWatchCount = state.movies.filter(m => m.status === 'towatch').length;
-    const watchedCount = state.movies.filter(m => m.status === 'watched').length;
-    tabToWatch.textContent = 'To watch (' + toWatchCount + ')';
-    tabWatched.textContent = 'Watched (' + watchedCount + ')';
+    tabToWatch.textContent = 'To watch (' + state.movies.filter(m => m.status === 'towatch').length + ')';
+    tabWatched.textContent = 'Watched (' + state.movies.filter(m => m.status === 'watched').length + ')';
     tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
     tabWatched.classList.toggle('active', state.activeTab === 'watched');
   }
 
   function renderList() {
-    const items = state.movies.filter(m =>
-      m.status === state.activeTab &&
-      (m.mediaType || 'movie') === state.mediaFilter
-    );
-
-    if (items.length === 0) {
+    const items = state.movies.filter(m => m.status === state.activeTab && (m.mediaType || 'movie') === state.mediaFilter);
+    if (!items.length) {
       const filterWord = state.mediaFilter === 'series' ? 'series' : 'movies';
       listEl.innerHTML = state.activeTab === 'towatch'
         ? '<div class="empty-state">No ' + filterWord + ' booked yet.<br/>Search above to add one.</div>'
         : '<div class="empty-state">No ' + filterWord + ' watched yet.<br/>Once you finish one, mark it here.</div>';
       return;
     }
-
     listEl.innerHTML = items.map(m => {
       const pills = (m.platforms && m.platforms.length)
-        ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p =>
-            '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>'
-          ).join('') + '</div>'
+        ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
         : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
-
       const actions = m.status === 'towatch'
-        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button>' +
-          '<button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
-        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button>' +
-          '<button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>';
-
+        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
+        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>';
       let updateBannerHtml = '';
       if (m.hasUpdate) {
         const detail = m.updateDetail || m.latestKnown || 'a new episode/season';
         const waText = encodeURIComponent('🎬 ' + m.title + ' just dropped: ' + detail + '!');
-        updateBannerHtml =
-          '<div class="update-banner">' +
-            '<span>🆕 New today: ' + escapeHtml(detail) + '</span>' +
-            '<a class="icon-btn whatsapp-btn" href="https://wa.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>' +
-            '<button class="icon-btn" data-action="dismiss-update" data-id="' + m.id + '">Got it</button>' +
-          '</div>';
+        updateBannerHtml = '<div class="update-banner"><span>🆕 New today: ' + escapeHtml(detail) + '</span>' +
+          '<a class="icon-btn whatsapp-btn" href="https://wa.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>' +
+          '<button class="icon-btn" data-action="dismiss-update" data-id="' + m.id + '">Got it</button></div>';
       }
-
       let detailsHtml = '';
       const isOpen = expandedIds.has(m.id);
       if (isOpen) {
         if (m.mediaType === 'series') {
-          if (m.seasonDetailsLoading) {
-            detailsHtml = '<div class="details-panel"><div class="details-loading">Checking episode guide…</div></div>';
-          } else if (m.seasonDetails) {
+          if (m.seasonDetailsLoading) detailsHtml = '<div class="details-panel"><div class="details-loading">Checking episode guide…</div></div>';
+          else if (m.seasonDetails) {
             const seasonsListHtml = (m.seasonDetails.seasons && m.seasonDetails.seasons.length)
-              ? '<ul class="season-list">' + m.seasonDetails.seasons.map(s =>
-                  '<li>Season ' + escapeHtml(String(s.season)) + ' — ' + escapeHtml(String(s.episodes)) + ' episodes</li>'
-                ).join('') + '</ul>'
+              ? '<ul class="season-list">' + m.seasonDetails.seasons.map(s => '<li>Season ' + escapeHtml(String(s.season)) + ' — ' + escapeHtml(String(s.episodes)) + ' episodes</li>').join('') + '</ul>'
               : '<p class="details-empty">No season breakdown found.</p>';
-            detailsHtml =
-              '<div class="details-panel">' +
-                (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '') +
-                seasonsListHtml +
-                '<p class="next-episode">📅 ' + escapeHtml(m.seasonDetails.nextEpisode || 'No schedule info found.') + '</p>' +
-                '<button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Refresh</button>' +
-              '</div>';
+            detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '') + seasonsListHtml +
+              '<p class="next-episode">📅 ' + escapeHtml(m.seasonDetails.nextEpisode || 'No schedule info found.') + '</p>' +
+              '<button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Refresh</button></div>';
           } else {
-            detailsHtml =
-              '<div class="details-panel">' +
-                (state.apiKey && m.tmdbId
-                  ? '<p class="details-empty">Could not load episode details.</p><button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Try again</button>'
-                  : '<p class="details-empty">Add a TMDB API key and re-search this title to load episode details.</p>') +
-              '</div>';
+            detailsHtml = '<div class="details-panel">' + (state.apiKey && m.tmdbId
+              ? '<p class="details-empty">Couldn\'t load episode details.</p><button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Try again</button>'
+              : '<p class="details-empty">Add a TMDB API key and re-search this title to load episode details.</p>') + '</div>';
           }
         } else {
-          detailsHtml = '<div class="details-panel">' +
-            (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '<p class="details-empty">No extra details available.</p>') +
-            '</div>';
+          detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '<p class="details-empty">No extra details available.</p>') + '</div>';
         }
       }
-
-      return (
-        '<div class="ticket">' +
-          '<div class="stub">' + (m.year || '—') + '</div>' +
-          '<div class="body">' +
-            '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' +
-              escapeHtml(m.title) + (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') +
-              ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span>' +
-            '</p>' +
-            pills +
-            updateBannerHtml +
-            detailsHtml +
-            '<div class="t-actions">' + actions + '</div>' +
-          '</div>' +
-        '</div>'
-      );
+      return '<div class="ticket"><div class="stub">' + (m.year || '—') + '</div><div class="body">' +
+        '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
+        (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
+        pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
     }).join('');
   }
 
@@ -1384,101 +714,56 @@
     if (!btn) return;
     const id = btn.getAttribute('data-id');
     const action = btn.getAttribute('data-action');
-
-    if (action === 'toggle-details') {
-      toggleDetails(id);
-      return;
-    }
-    if (action === 'refresh-details') {
-      expandedIds.add(id);
-      fetchSeasonDetails(id);
-      return;
-    }
-
+    if (action === 'toggle-details') { toggleDetails(id); return; }
+    if (action === 'refresh-details') { expandedIds.add(id); fetchSeasonDetails(id); return; }
     const movie = state.movies.find(m => m.id === id);
     if (!movie) return;
-
     if (action === 'watched') movie.status = 'watched';
     if (action === 'towatch') movie.status = 'towatch';
-    if (action === 'dismiss-update') {
-      movie.hasUpdate = false;
-      movie.updateDetail = '';
-      showUpdateToast();
-    }
-    if (action === 'remove') {
-      state.movies = state.movies.filter(m => m.id !== id);
-    }
-    saveMovies();
-    renderTabs();
-    renderList();
+    if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; showUpdateToast(); }
+    if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
+    saveToFirestore(); renderTabs(); renderList();
   });
 
-  tabToWatch.addEventListener('click', () => {
-    state.activeTab = 'towatch';
-    renderTabs();
-    renderList();
-  });
-  tabWatched.addEventListener('click', () => {
-    state.activeTab = 'watched';
-    renderTabs();
-    renderList();
-  });
+  tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
+  tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
 
-  const mediaFilterEl = document.getElementById('media-filter');
-  mediaFilterEl.addEventListener('click', (e) => {
+  document.getElementById('media-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('.filter-btn');
     if (!btn) return;
     state.mediaFilter = btn.getAttribute('data-filter');
-    mediaFilterEl.querySelectorAll('.filter-btn').forEach(b =>
-      b.classList.toggle('active', b === btn)
-    );
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
     renderList();
   });
 
   regionSelect.addEventListener('change', () => {
-    if (regionSelect.value === 'Other') {
-      regionCustom.style.display = 'inline-block';
-      regionCustom.focus();
-    } else {
-      regionCustom.style.display = 'none';
-      state.region = regionSelect.value;
-      saveRegion();
-    }
+    if (regionSelect.value === 'Other') { regionCustom.style.display = 'inline-block'; regionCustom.focus(); }
+    else { regionCustom.style.display = 'none'; state.region = regionSelect.value; saveToFirestore(); }
   });
   regionCustom.addEventListener('change', () => {
     const v = regionCustom.value.trim().toUpperCase();
-    if (v.length === 2) {
-      state.region = v;
-      saveRegion();
-    }
+    if (v.length === 2) { state.region = v; saveToFirestore(); }
   });
 
-  document.getElementById('settings-toggle').addEventListener('click', () => {
+  document.getElementById('settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
     apiKeyPanel.classList.toggle('open');
   });
   document.getElementById('save-key-btn').addEventListener('click', () => {
-    state.apiKey = apiKeyInput.value.trim();
-    saveApiKey(state.apiKey);
-    updateKeyStatus();
+    state.apiKey = apiKeyInput.value.trim(); saveApiKey(state.apiKey); updateKeyStatus();
   });
   document.getElementById('clear-key-btn').addEventListener('click', () => {
-    state.apiKey = '';
-    apiKeyInput.value = '';
-    saveApiKey('');
-    updateKeyStatus();
+    state.apiKey = ''; apiKeyInput.value = ''; saveApiKey(''); updateKeyStatus();
   });
 
   async function doSearch(title) {
     hideSuggestions();
-    state.lastQuery = title;
-    state.searchState = 'loading';
-    renderResult();
+    state.lastQuery = title; state.searchState = 'loading'; renderResult();
     try {
-      const result = await searchMovie(title, state.region);
-      state.searchResult = result;
+      state.searchResult = await searchMovie(title, state.region);
       state.searchState = 'result';
     } catch (err) {
-      console.error('doSearch failed:', err);
+      console.error(err);
       state.errorMsg = friendlySearchError(err);
       state.searchState = 'error';
     }
@@ -1488,74 +773,40 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const title = input.value.trim();
-    if (!title) return;
-    doSearch(title);
+    if (title) doSearch(title);
   });
 
-  let suggestTimer = null;
-  let suggestSeq = 0;
+  let suggestTimer = null, suggestSeq = 0;
   const suggestCache = {};
-
   function renderSuggestions(list) {
-    if (!list || list.length === 0) {
-      hideSuggestions();
-      return;
-    }
-    suggestionsEl.innerHTML = list.map(t =>
-      '<div class="suggestion-item" data-title="' + escapeHtml(t) + '">' + escapeHtml(t) + '</div>'
-    ).join('');
+    if (!list || !list.length) { hideSuggestions(); return; }
+    suggestionsEl.innerHTML = list.map(t => '<div class="suggestion-item" data-title="' + escapeHtml(t) + '">' + escapeHtml(t) + '</div>').join('');
     suggestionsEl.style.display = 'block';
   }
-
-  function hideSuggestions() {
-    suggestionsEl.innerHTML = '';
-    suggestionsEl.style.display = 'none';
-  }
-
+  function hideSuggestions() { suggestionsEl.innerHTML = ''; suggestionsEl.style.display = 'none'; }
   async function fetchSuggestions(q) {
     if (!state.apiKey) return;
     const key = q.toLowerCase();
-    if (suggestCache[key]) {
-      renderSuggestions(suggestCache[key]);
-      return;
-    }
+    if (suggestCache[key]) { renderSuggestions(suggestCache[key]); return; }
     const mySeq = ++suggestSeq;
     suggestionsEl.innerHTML = '<div class="suggestion-loading">Searching titles…</div>';
     suggestionsEl.style.display = 'block';
     try {
-      const multi = await tmdbGet('/search/multi', {
-        query: q,
-        include_adult: 'false',
-        language: 'en-US',
-        page: 1
-      });
+      const multi = await tmdbGet('/search/multi', { query: q, include_adult: 'false', language: 'en-US', page: 1 });
       if (mySeq !== suggestSeq) return;
-      const list = (multi.results || [])
-        .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-        .slice(0, 6)
-        .map(r => r.media_type === 'tv' ? (r.name || '') : (r.title || ''))
-        .filter(Boolean);
+      const list = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 6)
+        .map(r => r.media_type === 'tv' ? (r.name || '') : (r.title || '')).filter(Boolean);
       suggestCache[key] = list;
       if (mySeq === suggestSeq) renderSuggestions(list);
-    } catch (e) {
-      if (mySeq === suggestSeq) hideSuggestions();
-    }
+    } catch (e) { if (mySeq === suggestSeq) hideSuggestions(); }
   }
-
   input.addEventListener('input', () => {
     const q = input.value.trim();
     clearTimeout(suggestTimer);
-    if (q.length < 2) {
-      hideSuggestions();
-      return;
-    }
+    if (q.length < 2) { hideSuggestions(); return; }
     suggestTimer = setTimeout(() => fetchSuggestions(q), 350);
   });
-
-  input.addEventListener('blur', () => {
-    setTimeout(hideSuggestions, 150);
-  });
-
+  input.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
   suggestionsEl.addEventListener('click', (e) => {
     const item = e.target.closest('.suggestion-item');
     if (!item) return;
@@ -1568,28 +819,48 @@
   document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
   document.getElementById('import-file').addEventListener('change', () => {
     const f = document.getElementById('import-file');
-    if (f.files && f.files[0]) {
-      importMoviesFromFile(f.files[0]);
-      f.value = '';
-    }
+    if (f.files && f.files[0]) { importMoviesFromFile(f.files[0]); f.value = ''; }
   });
 
-  (function init() {
-    state.movies = loadMovies();
-    state.region = loadRegion();
-    state.apiKey = loadApiKey();
-    apiKeyInput.value = state.apiKey;
-    applyRegionToControls();
-    updateKeyStatus();
-    renderTabs();
-    renderList();
-    if (state.apiKey) checkAllSeriesUpdates();
-  })();
+  googleBtn.addEventListener('click', signInWithGoogle);
+  logoutBtn.addEventListener('click', signOut);
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      state.user = user;
+      authOverlay.classList.add('hidden');
+      appRoot.style.display = 'flex';
+      updateUserBar();
+      await loadFromFirestore();
+      state.apiKey = loadApiKey();
+      apiKeyInput.value = state.apiKey;
+      if (!state.region) state.region = loadRegionLocal();
+      applyRegionToControls();
+      updateKeyStatus();
+      renderTabs();
+      renderList();
+      if (state.apiKey) checkAllSeriesUpdates();
+    } else {
+      state.user = null;
+      state.movies = [];
+      authOverlay.classList.remove('hidden');
+      appRoot.style.display = 'none';
+      clearAuthError();
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
+    }
+  });
 })();
 
+</script>
+
+<!-- PWA: service worker registration (separate from the app's own script, so it can't interfere with app logic) -->
+<script>
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Marquee: service worker registration failed', err);
+      });
     });
   }
 </script>
