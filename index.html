@@ -227,7 +227,7 @@
         </select>
         <input id="region-custom" class="region-custom" type="text" placeholder="ISO code e.g. DE" maxlength="2" style="display:none; width:90px;" />
       </div>
-      <div class="settings-row">
+      <div class="settings-row" id="settings-row">
         <button type="button" class="settings-toggle" id="settings-toggle">TMDB API key (free)</button>
         <div class="api-key-panel" id="api-key-panel">
           <label for="api-key-input">TMDB API key — free, no credit card</label>
@@ -417,6 +417,8 @@
   function updateKeyStatus() {
     if (state.apiKey) { keyStatus.textContent = 'Key saved ✓'; keyStatus.style.color = 'var(--free)'; }
     else { keyStatus.textContent = 'No key set'; keyStatus.style.color = 'var(--text-muted)'; }
+    const settingsRow = document.getElementById('settings-row');
+    if (settingsRow) settingsRow.style.display = state.apiKey ? 'none' : '';
   }
 
   function exportMovies() {
@@ -471,6 +473,13 @@
     return response.json();
   }
   function yearFromDate(d) { return (d && typeof d === 'string') ? d.slice(0, 4) : ''; }
+  function formatDMY(d) {
+    if (!d || typeof d !== 'string') return '';
+    const parts = d.slice(0, 10).split('-');
+    if (parts.length !== 3) return d;
+    const [y, m, day] = parts;
+    return day + '-' + m + '-' + y;
+  }
   function mapProviders(regionData) {
     if (!regionData) return [];
     const out = [], seen = new Set();
@@ -529,11 +538,11 @@
       let nextEpisode = 'No new season announced yet';
       if (detail.next_episode_to_air) {
         const n = detail.next_episode_to_air;
-        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number + (n.air_date ? ' · ' + n.air_date : '');
+        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number + (n.air_date ? ' · ' + formatDMY(n.air_date) : '');
       } else if (detail.status === 'Ended' || detail.status === 'Canceled') nextEpisode = 'Series ended';
       else if (detail.last_episode_to_air) {
         const l = detail.last_episode_to_air;
-        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number + (l.air_date ? ' (' + l.air_date + ')' : '');
+        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number + (l.air_date ? ' (' + formatDMY(l.air_date) + ')' : '');
       }
       return { seasons, nextEpisode };
     } catch (e) { return null; }
