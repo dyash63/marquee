@@ -51,7 +51,7 @@
     display: flex;
     justify-content: center;
   }
-  #marquee-app .wrap { width: 100%; max-width: 440px; }
+  #marquee-app .wrap { width: 100%; max-width: 440px; position: relative; }
   .mq-header { text-align: center; margin-bottom: 24px; }
   .bulbs { display: flex; justify-content: center; gap: 7px; margin-bottom: 10px; }
   .bulbs span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); opacity: 0.35; animation: twinkle 2.6s ease-in-out infinite; }
@@ -136,8 +136,6 @@
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
   .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
   .list-toolbar .icon-btn { font-size: 12px; }
-  .attribution { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; line-height: 1.5; }
-  .attribution a { color: var(--gold); }
   #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
   #auth-overlay.hidden { display: none; }
   .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
@@ -150,11 +148,12 @@
   .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
   .google-btn svg { width: 18px; height: 18px; }
   .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
-  .user-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; padding: 8px 10px; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; font-size: 12px; }
-  .user-bar .user-info { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .user-bar img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
-  .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-  .user-bar .logout-btn { background: none; border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 6px; font-family: inherit; font-size: 11px; padding: 4px 8px; cursor: pointer; flex-shrink: 0; }
+  .user-bar { position: absolute; top: 2px; right: 0; display: flex; align-items: center; gap: 6px; max-width: 150px; }
+  .user-bar .user-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .user-bar img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--card-border); flex-shrink: 0; }
+  .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; color: var(--text-muted); font-size: 11px; }
+  .user-bar .logout-btn { background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 10px; padding: 2px 0; cursor: pointer; text-decoration: underline; flex-shrink: 0; }
+  .user-bar .logout-btn:hover, .user-bar .logout-btn:active { color: var(--gold); }
   </style>
 </head>
 <body>
@@ -248,10 +247,6 @@
     <div id="storage-banner"></div>
     <div id="update-toast" class="update-toast" style="display:none;"></div>
     <div id="list"></div>
-    <p class="attribution">
-      This product uses the TMDB API but is not endorsed or certified by TMDB.<br/>
-      Watch provider data from <a href="https://www.justwatch.com" target="_blank" rel="noopener">JustWatch</a> via TMDB.
-    </p>
   </div>
 </div>
 <script>
