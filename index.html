@@ -144,6 +144,22 @@
   .notif-empty { padding: 14px 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
   .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
+  .suggest-panel { margin-top: 16px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated); padding: 12px; }
+  .suggest-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .suggest-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: var(--gold); }
+  .suggest-header .icon-btn { font-size: 11px; padding: 4px 8px; }
+  .suggest-list { display: flex; flex-direction: column; gap: 8px; }
+  .suggest-card { display: flex; gap: 10px; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; background: var(--bg); }
+  .suggest-card .s-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
+  .suggest-card .s-body { flex: 1; min-width: 0; }
+  .suggest-card .s-title { font-family: 'Bebas Neue', sans-serif; font-size: 15px; margin: 0 0 2px; letter-spacing: 0.3px; }
+  .suggest-card .s-meta { font-size: 11px; color: var(--text-muted); margin: 0 0 4px; }
+  .suggest-card .s-summary { font-size: 12px; line-height: 1.4; color: var(--text); margin: 0 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .suggest-card .s-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggest-card .s-actions .btn.filled { padding: 6px 10px; font-size: 12px; }
+  .suggest-card .s-actions .icon-btn { font-size: 11px; }
+  .suggest-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; }
+  .suggest-status { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
   .list-toolbar .icon-btn { font-size: 12px; }
   .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
@@ -254,6 +270,13 @@
       <button class="filter-btn active" data-filter="movie">Movies</button>
       <button class="filter-btn" data-filter="series">Series</button>
     </div>
+    <div class="suggest-panel" id="suggest-panel" style="display:none;">
+      <div class="suggest-header">
+        <span class="suggest-title">🎬 Suggested for you</span>
+        <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
+      </div>
+      <div id="suggest-body"></div>
+    </div>
     <div class="list-toolbar">
       <button class="icon-btn" id="export-btn">Export backup</button>
       <button class="icon-btn" id="import-btn">Import backup</button>
@@ -287,8 +310,10 @@
 
   const state = {
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
-    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', apiKeyFromCloud: false, lastQuery: '', saving: false
+    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', apiKeyFromCloud: false, lastQuery: '', saving: false,
+    suggestions: [], suggestState: 'idle', suggestError: ''
   };
+  const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
   const expandedIds = new Set();
   let saveTimer = null;
 
@@ -404,6 +429,10 @@
   }
   function loadRegionLocal() { return tryLoad('region') || 'IN'; }
   function loadApiKey() { return tryLoad('tmdbKey') || ''; }
+  function loadDismissedSuggestions() {
+    try { return new Set(JSON.parse(tryLoad('dismissedSuggestions') || '[]')); } catch (e) { return new Set(); }
+  }
+  function saveDismissedSuggestions(set) { trySave('dismissedSuggestions', JSON.stringify(Array.from(set))); }
   function saveApiKey(key) {
     if (key) trySave('tmdbKey', key);
     else try { localStorage.removeItem(STORAGE_PREFIX + 'tmdbKey'); } catch (e) {}
@@ -449,7 +478,7 @@
         };
         if (idx !== -1) state.movies[idx] = clean; else state.movies.push(clean);
       });
-      saveToFirestore(true); renderTabs(); renderList();
+      saveToFirestore(true); renderTabs(); renderList(); maybeAutoSuggest();
       alert('Imported ' + imported.length + ' title(s).');
     };
     reader.readAsText(file);
@@ -493,6 +522,142 @@
     add(regionData.flatrate, 'stream'); add(regionData.ads, 'free'); add(regionData.free, 'free');
     add(regionData.rent, 'rent'); add(regionData.buy, 'buy');
     return out;
+  }
+
+  // --- "Suggested for you" recommendation engine ---------------------------
+  // Built from titles already in the library (both To watch and Watched):
+  // for each library title we pull TMDB's own "recommendations" for it, then
+  // rank the combined results by how often + how prominently each candidate
+  // showed up across those calls, dropping anything already in the library or
+  // previously dismissed. Needs at least MIN_LIBRARY_FOR_SUGGESTIONS titles
+  // added before it will suggest anything.
+
+  function suggestionKey(mediaType, tmdbId) { return mediaType + ':' + tmdbId; }
+
+  function maybeAutoSuggest() {
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+      generateSuggestions();
+    } else {
+      renderSuggestPanel();
+    }
+  }
+
+  async function generateSuggestions() {
+    const library = state.movies.filter(m => m.tmdbId);
+    if (!state.apiKey || library.length < MIN_LIBRARY_FOR_SUGGESTIONS) { renderSuggestPanel(); return; }
+    state.suggestState = 'loading'; state.suggestError = '';
+    renderSuggestPanel();
+    try {
+      const inLibrary = new Set(library.map(m => suggestionKey(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId)));
+      const dismissed = loadDismissedSuggestions();
+      // Cap how many library titles we fan out from, newest-added first, to keep this to a reasonable number of API calls.
+      const sources = library.slice(0, 8);
+      const scoreMap = new Map();
+      await Promise.all(sources.map(async (m) => {
+        const kind = m.mediaType === 'series' ? 'tv' : 'movie';
+        try {
+          const res = await tmdbGet('/' + kind + '/' + m.tmdbId + '/recommendations', { language: 'en-US', page: 1 });
+          (res.results || []).forEach((r, idx) => {
+            const mediaType = kind === 'tv' ? 'series' : 'movie';
+            const key = suggestionKey(mediaType, r.id);
+            if (inLibrary.has(key) || dismissed.has(key)) return;
+            const title = mediaType === 'series' ? (r.name || '') : (r.title || '');
+            if (!title) return;
+            const weight = 1 - idx * 0.03;
+            const existing = scoreMap.get(key);
+            if (existing) existing.score += weight;
+            else scoreMap.set(key, {
+              score: weight,
+              data: {
+                tmdbId: r.id, mediaType, title,
+                year: yearFromDate(mediaType === 'series' ? r.first_air_date : r.release_date),
+                summary: (r.overview || '').trim(),
+                posterLink: r.poster_path ? TMDB_IMG + r.poster_path : '',
+                popularity: r.popularity || 0
+              }
+            });
+          });
+        } catch (e) { /* skip titles TMDB can't give recommendations for */ }
+      }));
+      state.suggestions = Array.from(scoreMap.values())
+        .sort((a, b) => (b.score - a.score) || (b.data.popularity - a.data.popularity))
+        .slice(0, 6)
+        .map(x => x.data);
+      state.suggestState = 'ready';
+    } catch (e) {
+      console.error(e);
+      state.suggestState = 'error';
+      state.suggestError = friendlySearchError(e);
+    }
+    renderSuggestPanel();
+  }
+
+  function dismissSuggestion(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    state.suggestions.splice(idx, 1);
+    const dismissed = loadDismissedSuggestions();
+    dismissed.add(key);
+    saveDismissedSuggestions(dismissed);
+    renderSuggestPanel();
+  }
+
+  async function addSuggestionToWatchlist(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    const s = state.suggestions[idx];
+    const addBtn = document.querySelector('#suggest-body [data-add="' + key + '"]');
+    if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+    let platforms = [];
+    try {
+      const kind = s.mediaType === 'series' ? 'tv' : 'movie';
+      const providers = await tmdbGet('/' + kind + '/' + s.tmdbId + '/watch/providers');
+      platforms = mapProviders(providers.results && providers.results[state.region]);
+    } catch (e) { /* leave platforms empty if lookup fails */ }
+    const finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    state.movies.unshift({
+      id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
+      mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
+      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion'
+    });
+    state.suggestions.splice(idx, 1);
+    saveToFirestore();
+    state.activeTab = 'towatch'; state.mediaFilter = s.mediaType === 'series' ? 'series' : 'movie';
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    renderTabs(); renderList(); renderSuggestPanel();
+    if (s.mediaType === 'series') establishSeriesBaseline(finalId);
+  }
+
+  function renderSuggestPanel() {
+    const panel = document.getElementById('suggest-panel');
+    const body = document.getElementById('suggest-body');
+    if (!panel || !body) return;
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (!state.apiKey || libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    if (state.suggestState === 'loading') {
+      body.innerHTML = '<div class="suggest-status"><div class="spinner"></div><span>Finding what to watch next…</span></div>';
+      return;
+    }
+    if (state.suggestState === 'error') {
+      body.innerHTML = '<div class="suggest-status">' + escapeHtml(state.suggestError || 'Could not load suggestions.') + '</div>';
+      return;
+    }
+    if (!state.suggestions.length) {
+      body.innerHTML = '<div class="suggest-empty">No fresh suggestions right now — hit refresh to try again.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="suggest-list">' + state.suggestions.map(s => {
+      const key = suggestionKey(s.mediaType, s.tmdbId);
+      const img = isValidLink(s.posterLink) ? '<img class="s-poster" src="' + escapeHtml(s.posterLink) + '" alt="" />' : '<div class="s-poster"></div>';
+      return '<div class="suggest-card">' + img +
+        '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + (s.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + '</p>' +
+        '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
+        '<p class="s-summary">' + escapeHtml(s.summary || 'No summary available.') + '</p>' +
+        '<div class="s-actions"><button class="btn filled" data-add="' + key + '">Add to watchlist</button><button class="icon-btn" data-dismiss="' + key + '">Not interested</button></div>' +
+        '</div></div>';
+    }).join('') + '</div>';
   }
 
   async function searchMovie(title, regionCode) {
@@ -684,7 +849,7 @@
     }
     saveToFirestore();
     state.searchState = 'idle'; state.searchResult = null; input.value = '';
-    state.activeTab = status; renderResult(); renderTabs(); renderList();
+    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest();
     if (needsBaseline) establishSeriesBaseline(finalId);
   }
 
@@ -760,7 +925,15 @@
     if (action === 'towatch') movie.status = 'towatch';
     if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
-    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest();
+  });
+
+  document.getElementById('suggest-refresh-btn').addEventListener('click', () => generateSuggestions());
+  document.getElementById('suggest-body').addEventListener('click', (e) => {
+    const addBtn = e.target.closest('[data-add]');
+    if (addBtn) { addSuggestionToWatchlist(addBtn.getAttribute('data-add')); return; }
+    const dismissBtn = e.target.closest('[data-dismiss]');
+    if (dismissBtn) { dismissSuggestion(dismissBtn.getAttribute('data-dismiss')); return; }
   });
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
@@ -791,11 +964,14 @@
     state.apiKey = apiKeyInput.value.trim(); saveApiKey(state.apiKey); updateKeyStatus();
     state.apiKeyFromCloud = true;
     saveToFirestore(true);
+    maybeAutoSuggest();
   });
   document.getElementById('clear-key-btn').addEventListener('click', () => {
     state.apiKey = ''; apiKeyInput.value = ''; saveApiKey(''); updateKeyStatus();
     state.apiKeyFromCloud = true;
     saveToFirestore(true);
+    state.suggestions = []; state.suggestState = 'idle';
+    renderSuggestPanel();
   });
 
   async function doSearch(title) {
@@ -918,6 +1094,7 @@
       renderTabs();
       renderList();
       renderNotifications();
+      maybeAutoSuggest();
       if (state.apiKey) checkAllSeriesUpdates();
     } else {
       state.user = null;
