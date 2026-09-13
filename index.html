@@ -277,7 +277,7 @@
 
   const state = {
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
-    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', lastQuery: '', saving: false
+    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', apiKeyFromCloud: false, lastQuery: '', saving: false
   };
   const expandedIds = new Set();
   let saveTimer = null;
@@ -359,6 +359,10 @@
         const data = snap.data();
         if (Array.isArray(data.movies)) state.movies = data.movies;
         if (data.region) state.region = data.region;
+        if (typeof data.apiKey === 'string' && data.apiKey) {
+          state.apiKey = data.apiKey;
+          state.apiKeyFromCloud = true;
+        }
       } else {
         const local = loadMoviesLocal();
         if (local.length) { state.movies = local; await saveToFirestore(true); }
@@ -375,9 +379,10 @@
       const ref = userDocRef();
       if (!ref) return;
       try {
-        await ref.set({ movies: state.movies, region: state.region, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        await ref.set({ movies: state.movies, region: state.region, apiKey: state.apiKey || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         trySave('movies', JSON.stringify(state.movies));
         trySave('region', state.region);
+        saveApiKey(state.apiKey);
         clearStorageBanner();
       } catch (e) { console.error(e); showStorageBanner(); }
     };
@@ -751,9 +756,13 @@
   });
   document.getElementById('save-key-btn').addEventListener('click', () => {
     state.apiKey = apiKeyInput.value.trim(); saveApiKey(state.apiKey); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
   });
   document.getElementById('clear-key-btn').addEventListener('click', () => {
     state.apiKey = ''; apiKeyInput.value = ''; saveApiKey(''); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
   });
 
   async function doSearch(title) {
@@ -831,8 +840,15 @@
       authOverlay.classList.add('hidden');
       appRoot.style.display = 'flex';
       updateUserBar();
+      state.apiKeyFromCloud = false;
       await loadFromFirestore();
-      state.apiKey = loadApiKey();
+      if (!state.apiKeyFromCloud) {
+        // Cloud had no saved key (new account, or a key saved before this feature existed
+        // only locally on this device) — fall back to whatever's cached here, and if found,
+        // push it up to Firestore so it's available on every device from now on.
+        const localKey = loadApiKey();
+        if (localKey) { state.apiKey = localKey; saveToFirestore(true); }
+      }
       apiKeyInput.value = state.apiKey;
       if (!state.region) state.region = loadRegionLocal();
       applyRegionToControls();
