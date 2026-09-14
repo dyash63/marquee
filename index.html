@@ -116,6 +116,7 @@
   .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
   #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
   .ticket { position: relative; display: flex; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); overflow: hidden; }
+  .ticket .t-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); margin: 12px 0 12px 12px; }
   .ticket .stub { width: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--text-muted); border-right: 1px dashed var(--card-border); position: relative; }
   .ticket .stub::before, .ticket .stub::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); right: -7px; }
   .ticket .stub::before { top: -6px; } .ticket .stub::after { bottom: -6px; }
@@ -148,14 +149,12 @@
   .notif-empty { padding: 14px 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
   .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
-  .suggest-panel { margin-top: 16px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated); padding: 12px; }
-  .suggest-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
-  .suggest-header.is-open { margin-bottom: 10px; }
+  .suggest-panel { margin-top: 14px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated); padding: 12px; }
+  .suggest-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .suggest-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: var(--gold); }
   .suggest-count { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted); margin-left: 6px; letter-spacing: 0; }
   .suggest-header-actions { display: flex; align-items: center; gap: 10px; }
   .suggest-header .icon-btn { font-size: 11px; padding: 4px 8px; }
-  .suggest-caret { color: var(--text-muted); font-size: 12px; }
   .suggest-list { display: flex; flex-direction: column; gap: 8px; }
   .suggest-card { display: flex; gap: 10px; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; background: var(--bg); }
   .suggest-card .s-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
@@ -200,10 +199,10 @@
     <h2>Your personal movie & series watchlist</h2>
     <p>Search titles, see where to stream / rent / buy in your region, keep To-watch & Watched lists, and get notified about new episodes.</p>
     <ul class="welcome-features">
-      <li>Typeahead search powered by TMDB</li>
-      <li>Region-specific streaming options (JustWatch)</li>
-      <li>Series episode guides & “new today” alerts</li>
-      <li>Cloud backup via your Google account</li>
+      <li>See where to stream, rent, or buy — for your region</li>
+      <li>Personalized “Suggested for you” recommendations</li>
+      <li>Real IMDb ratings on your titles</li>
+      <li>Export & import your list anytime</li>
       <li>100% free — no credit card ever</li>
     </ul>
     <button type="button" class="google-btn" id="google-signin-btn">
@@ -291,23 +290,23 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
       <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
+      <button class="tab-btn" data-tab="suggested" id="tab-suggested">🎬 Suggested</button>
     </div>
     <div class="media-filter" id="media-filter">
       <button class="filter-btn active" data-filter="movie">Movies</button>
       <button class="filter-btn" data-filter="series">Series</button>
     </div>
-    <div class="list-search-row">
+    <div class="list-search-row" id="list-search-row">
       <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
     </div>
     <div class="suggest-panel" id="suggest-panel" style="display:none;">
       <div class="suggest-header" id="suggest-toggle">
-        <span class="suggest-title">🎬 Suggested for you<span class="suggest-count" id="suggest-count"></span></span>
+        <span class="suggest-title">Suggested for you<span class="suggest-count" id="suggest-count"></span></span>
         <span class="suggest-header-actions">
           <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
-          <span class="suggest-caret" id="suggest-caret">▸</span>
         </span>
       </div>
-      <div id="suggest-body" style="display:none;"></div>
+      <div id="suggest-body"></div>
     </div>
     <div class="list-toolbar">
       <button class="icon-btn" id="export-btn">Export backup</button>
@@ -365,6 +364,10 @@
   const regionCustom = document.getElementById('region-custom');
   const tabToWatch = document.getElementById('tab-towatch');
   const tabWatched = document.getElementById('tab-watched');
+  const tabSuggested = document.getElementById('tab-suggested');
+  const mediaFilterEl = document.getElementById('media-filter');
+  const listSearchRowEl = document.getElementById('list-search-row');
+  const suggestPanelEl = document.getElementById('suggest-panel');
   const suggestionsEl = document.getElementById('suggestions');
   const apiKeyInput = document.getElementById('api-key-input');
   const apiKeyPanel = document.getElementById('api-key-panel');
@@ -752,18 +755,21 @@
   function renderSuggestPanel() {
     const panel = document.getElementById('suggest-panel');
     const body = document.getElementById('suggest-body');
-    const header = document.getElementById('suggest-toggle');
-    const caret = document.getElementById('suggest-caret');
     const countEl = document.getElementById('suggest-count');
     if (!panel || !body) return;
-    const libraryCount = state.movies.filter(m => m.tmdbId).length;
-    if (!state.apiKey || libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) { panel.style.display = 'none'; return; }
+    if (state.activeTab !== 'suggested') return;
     panel.style.display = 'block';
-    header.classList.toggle('is-open', state.suggestOpen);
-    caret.textContent = state.suggestOpen ? '▾' : '▸';
     countEl.textContent = state.suggestions.length ? ' (' + state.suggestions.length + ')' : '';
-    body.style.display = state.suggestOpen ? 'block' : 'none';
-    if (!state.suggestOpen) return;
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (!state.apiKey) {
+      body.innerHTML = '<div class="suggest-empty">Add a TMDB API key above to get personalized suggestions.</div>';
+      return;
+    }
+    if (libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) {
+      const remaining = MIN_LIBRARY_FOR_SUGGESTIONS - libraryCount;
+      body.innerHTML = '<div class="suggest-empty">Add ' + remaining + ' more title' + (remaining === 1 ? '' : 's') + ' to To watch or Watched to unlock suggestions.</div>';
+      return;
+    }
     if (state.suggestState === 'loading') {
       body.innerHTML = '<div class="suggest-status"><div class="spinner"></div><span>Finding what to watch next…</span></div>';
       return;
@@ -986,6 +992,20 @@
     tabWatched.textContent = 'Watched (' + state.movies.filter(m => m.status === 'watched').length + ')';
     tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
     tabWatched.classList.toggle('active', state.activeTab === 'watched');
+    tabSuggested.classList.toggle('active', state.activeTab === 'suggested');
+    const isSuggested = state.activeTab === 'suggested';
+    mediaFilterEl.style.display = isSuggested ? 'none' : 'flex';
+    listSearchRowEl.style.display = isSuggested ? 'block' : 'none';
+    listEl.style.display = isSuggested ? 'none' : 'flex';
+    suggestPanelEl.style.display = isSuggested ? 'block' : 'none';
+    if (isSuggested) {
+      const libraryCount = state.movies.filter(m => m.tmdbId).length;
+      if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+        generateSuggestions();
+      } else {
+        renderSuggestPanel();
+      }
+    }
   }
 
   function renderList() {
@@ -1036,7 +1056,8 @@
           detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '<p class="details-empty">No extra details available.</p>') + '</div>';
         }
       }
-      return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '"><div class="stub">' + (m.year || '—') + '</div><div class="body">' +
+      const posterImgHtml = isValidLink(m.posterLink) ? '<img class="t-poster" src="' + escapeHtml(m.posterLink) + '" alt="" />' : '<div class="t-poster"></div>';
+      return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '">' + posterImgHtml + '<div class="stub">' + (m.year || '—') + '</div><div class="body">' +
         '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
         (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + imdbBadgeHtml(m.imdbRating) + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
         pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
@@ -1059,11 +1080,6 @@
     saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest(); backfillImdbRatings();
   });
 
-  document.getElementById('suggest-toggle').addEventListener('click', () => {
-    state.suggestOpen = !state.suggestOpen;
-    if (state.suggestOpen && state.suggestState === 'idle' && !state.suggestions.length) generateSuggestions();
-    else renderSuggestPanel();
-  });
   document.getElementById('suggest-refresh-btn').addEventListener('click', (e) => {
     e.stopPropagation();
     generateSuggestions();
@@ -1077,6 +1093,7 @@
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
   tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
+  tabSuggested.addEventListener('click', () => { state.activeTab = 'suggested'; renderTabs(); });
 
   document.getElementById('media-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('.filter-btn');
