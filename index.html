@@ -168,6 +168,16 @@
   .suggest-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; }
   .suggest-status { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .imdb-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #16213e; background: var(--gold); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .choice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .choice-hint { font-size: 12px; color: var(--text-muted); margin: 0 0 2px; }
+  .choice-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); padding: 8px; cursor: pointer; font-family: inherit; color: var(--text); }
+  .choice-item:active { background: var(--gold-dim); border-color: var(--gold); }
+  .choice-poster { width: 40px; height: 58px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
+  .choice-body { min-width: 0; flex: 1; }
+  .choice-title { display: block; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.3px; }
+  .choice-year { font-family: 'Inter', sans-serif; color: var(--text-muted); font-size: 12px; }
+  .choice-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .choice-cancel { align-self: flex-start; margin-top: 2px; }
   .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
   #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
   #auth-overlay.hidden { display: none; }
@@ -330,6 +340,12 @@
   const STORAGE_PREFIX = 'marquee_';
   const TMDB_BASE = 'https://api.themoviedb.org/3';
   const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+  const TMDB_IMG_THUMB = 'https://image.tmdb.org/t/p/w92';
+  const LANG_NAMES = { en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada',
+    bn: 'Bengali', mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', ur: 'Urdu', ja: 'Japanese', ko: 'Korean',
+    es: 'Spanish', fr: 'French', de: 'German', zh: 'Chinese', ru: 'Russian', it: 'Italian', pt: 'Portuguese',
+    ar: 'Arabic', tr: 'Turkish', th: 'Thai' };
+  function languageName(code) { return (code && LANG_NAMES[code]) || (code ? code.toUpperCase() : ''); }
   // Shared app-wide keys — every signed-in user rides on these, so nobody
   // is ever asked to bring their own. The key-entry UI is hidden below.
   const SHARED_TMDB_KEY = 'e4b02faabb3499e61ae71ba7b320e064';
@@ -337,7 +353,7 @@
 
   const state = {
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
-    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
+    searchState: 'idle', searchResult: null, searchCandidates: [], errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
     suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
     omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false
   };
@@ -592,7 +608,11 @@
       for (let i = 0; i < candidates.length; i += chunkSize) {
         const chunk = candidates.slice(i, i + chunkSize);
         await Promise.all(chunk.map(async (m) => {
-          m.imdbRating = await getImdbRating(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId);
+          const rating = await getImdbRating(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId);
+          // Only persist an actual rating. Leaving it undefined on a miss (rate limit,
+          // network hiccup, or a title that just isn't rated yet) means it gets
+          // retried on a future backfill instead of being permanently blank.
+          if (rating) m.imdbRating = rating;
         }));
         renderList();
       }
@@ -704,7 +724,7 @@
       id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
       mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
       platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
-      imdbRating: s.imdbRating !== undefined ? s.imdbRating : undefined
+      imdbRating: s.imdbRating || undefined
     });
     state.suggestions.splice(idx, 1);
     saveToFirestore();
@@ -756,29 +776,44 @@
     }).join('') + '</div>';
   }
 
-  async function searchMovie(title, regionCode) {
+  // Returns TMDB's raw candidate matches for a query — title, year, media type,
+  // and original language for each, so the caller can show them for disambiguation
+  // rather than silently guessing at the top hit (which is often wrong for
+  // misspellings, or ambiguous for common titles that exist in several
+  // languages/years).
+  async function fetchSearchCandidates(title) {
     const multi = await tmdbGet('/search/multi', { query: title, include_adult: 'false', language: 'en-US', page: 1 });
-    const results = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
-    if (!results.length) return { title, year: '', mediaType: 'movie', summary: "Couldn't find this title.", posterLink: '', platforms: [], tmdbId: null };
-    const best = results[0];
-    const isTv = best.media_type === 'tv';
-    const id = best.id;
-    const mediaType = isTv ? 'series' : 'movie';
-    const detailPath = isTv ? '/tv/' + id : '/movie/' + id;
+    return (multi.results || [])
+      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+      .map(r => ({
+        tmdbId: r.id,
+        mediaType: r.media_type === 'tv' ? 'series' : 'movie',
+        title: r.media_type === 'tv' ? (r.name || '') : (r.title || ''),
+        year: yearFromDate(r.media_type === 'tv' ? r.first_air_date : r.release_date),
+        language: r.original_language || '',
+        posterPath: r.poster_path || ''
+      }))
+      .filter(c => c.title)
+      .slice(0, 8);
+  }
+
+  // Fetches full detail + region availability for one chosen candidate.
+  async function buildResultFromCandidate(cand, regionCode) {
+    const detailPath = cand.mediaType === 'series' ? '/tv/' + cand.tmdbId : '/movie/' + cand.tmdbId;
     const detail = await tmdbGet(detailPath, { language: 'en-US' });
     let platforms = [];
     try {
       const providers = await tmdbGet(detailPath + '/watch/providers');
       platforms = mapProviders(providers.results && providers.results[regionCode]);
     } catch (e) {}
-    const year = isTv ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
-    const posterPath = detail.poster_path || best.poster_path;
+    const year = cand.mediaType === 'series' ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
+    const posterPath = detail.poster_path || cand.posterPath;
     return {
-      title: isTv ? (detail.name || best.name) : (detail.title || best.title),
-      year, mediaType,
-      summary: (detail.overview || best.overview || '').trim() || 'No summary available.',
+      title: cand.mediaType === 'series' ? (detail.name || cand.title) : (detail.title || cand.title),
+      year, mediaType: cand.mediaType,
+      summary: (detail.overview || '').trim() || 'No summary available.',
       posterLink: posterPath ? TMDB_IMG + posterPath : '',
-      platforms, tmdbId: id
+      platforms, tmdbId: cand.tmdbId
     };
   }
 
@@ -906,6 +941,27 @@
     if (state.searchState === 'error') {
       resultArea.innerHTML = '<div class="error-box">' + escapeHtml(state.errorMsg) + '<div><button class="retry-btn" id="retry-btn">Try again</button></div></div>';
       document.getElementById('retry-btn').addEventListener('click', () => doSearch(state.lastQuery));
+      return;
+    }
+    if (state.searchState === 'choices') {
+      const items = state.searchCandidates.map((c, i) => {
+        const posterHtml = c.posterPath
+          ? '<img class="choice-poster" src="' + TMDB_IMG_THUMB + c.posterPath + '" alt="" />'
+          : '<div class="choice-poster"></div>';
+        const metaParts = [c.mediaType === 'series' ? 'Series' : 'Movie'];
+        const lang = languageName(c.language);
+        if (lang) metaParts.push(lang);
+        return '<button type="button" class="choice-item" data-idx="' + i + '">' + posterHtml +
+          '<span class="choice-body"><span class="choice-title">' + escapeHtml(c.title) +
+          (c.year ? ' <span class="choice-year">(' + escapeHtml(c.year) + ')</span>' : '') + '</span>' +
+          '<span class="choice-meta">' + escapeHtml(metaParts.join(' · ')) + '</span></span></button>';
+      }).join('');
+      resultArea.innerHTML = '<div class="choice-list"><p class="choice-hint">Multiple matches — which one?</p>' + items +
+        '<button type="button" class="btn choice-cancel" id="choice-cancel">Cancel</button></div>';
+      resultArea.querySelectorAll('.choice-item').forEach(btn => {
+        btn.addEventListener('click', () => chooseSearchCandidate(Number(btn.getAttribute('data-idx'))));
+      });
+      document.getElementById('choice-cancel').addEventListener('click', () => { state.searchState = 'idle'; state.searchCandidates = []; renderResult(); });
       return;
     }
     if (state.searchState === 'result') {
@@ -1116,9 +1172,37 @@
 
   async function doSearch(title) {
     hideSuggestions();
-    state.lastQuery = title; state.searchState = 'loading'; renderResult();
+    state.lastQuery = title; state.searchState = 'loading'; state.searchCandidates = []; renderResult();
     try {
-      state.searchResult = await searchMovie(title, state.region);
+      const candidates = await fetchSearchCandidates(title);
+      if (!candidates.length) {
+        state.searchResult = { title, year: '', mediaType: 'movie', summary: "Couldn't find this title.", posterLink: '', platforms: [], tmdbId: null };
+        state.searchState = 'result';
+      } else if (candidates.length === 1) {
+        // Only one match — no ambiguity, so go straight to the result card.
+        state.searchResult = await buildResultFromCandidate(candidates[0], state.region);
+        state.searchState = 'result';
+      } else {
+        // Several matches (same title in different years/languages, or a
+        // near-miss on spelling) — let the person pick the right one instead
+        // of silently guessing.
+        state.searchCandidates = candidates;
+        state.searchState = 'choices';
+      }
+    } catch (err) {
+      console.error(err);
+      state.errorMsg = friendlySearchError(err);
+      state.searchState = 'error';
+    }
+    renderResult();
+  }
+
+  async function chooseSearchCandidate(idx) {
+    const cand = state.searchCandidates[idx];
+    if (!cand) return;
+    state.searchState = 'loading'; renderResult();
+    try {
+      state.searchResult = await buildResultFromCandidate(cand, state.region);
       state.searchState = 'result';
     } catch (err) {
       console.error(err);
