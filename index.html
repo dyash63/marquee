@@ -64,10 +64,19 @@
   .search-row { display: flex; gap: 8px; }
   .input-wrap { position: relative; flex: 1; }
   .suggestions-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; z-index: 20; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
-  .suggestion-item { padding: 10px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
+  .suggestion-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
   .suggestion-item:last-child { border-bottom: none; }
   .suggestion-item:active { background: var(--gold-dim); }
+  .suggestion-title { font-size: 14px; }
+  .suggestion-genre { font-size: 10px; color: var(--gold); letter-spacing: 0.3px; text-transform: uppercase; }
   .suggestion-loading { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+  .genre-tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.2px; color: var(--gold); background: rgba(232, 185, 77, 0.12); border: 1px solid var(--gold-dim); border-radius: 20px; padding: 1px 8px; margin: 0 4px 4px 0; }
+  .genre-tag.small { font-size: 9px; padding: 1px 6px; }
+  .genre-line, .t-genres, .s-genres { margin: 2px 0 8px; line-height: 1.6; }
+  .list-search-share-flex { display: flex; gap: 6px; align-items: center; }
+  .list-search-share-flex #list-search { flex: 1; min-width: 0; }
+  .share-btn { min-height: 38px; padding: 0 10px; font-size: 15px; flex-shrink: 0; }
+  .instagram-btn { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4); color: #fff; border-color: transparent; }
   #movie-input { width: 100%; min-height: 46px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
   #movie-input:focus, select:focus, .region-custom:focus, #api-key-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   #movie-input::placeholder { color: var(--text-muted); }
@@ -304,7 +313,11 @@
       <button class="filter-btn" data-filter="series">Series</button>
     </div>
     <div class="list-search-row" id="list-search-row">
-      <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
+      <div class="list-search-share-flex">
+        <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
+        <button type="button" class="icon-btn share-btn whatsapp-btn" id="share-whatsapp-btn" title="Share this list on WhatsApp">📲</button>
+        <button type="button" class="icon-btn share-btn instagram-btn" id="share-instagram-btn" title="Share this list on Instagram">📸</button>
+      </div>
     </div>
     <div class="suggest-panel" id="suggest-panel" style="display:none;">
       <div class="suggest-header" id="suggest-toggle">
@@ -355,7 +368,8 @@
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
     searchState: 'idle', searchResult: null, searchCandidates: [], errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
     suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
-    omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false
+    omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false,
+    genreMap: { movie: {}, series: {} }
   };
   const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
   const imdbCache = {};
@@ -558,6 +572,38 @@
     return out;
   }
 
+  // --- Genre lookup ----------------------------------------------------------
+  // TMDB's search/multi and recommendations endpoints only return genre_ids,
+  // not names, so we fetch the movie + TV genre dictionaries once and cache
+  // them for the whole session, then resolve ids -> names anywhere we need to
+  // show a genre tag (autocomplete, disambiguation list, watchlist tickets,
+  // suggestion cards).
+  let genreMapsLoaded = false, genreMapsLoading = null;
+  function ensureGenreMaps() {
+    if (genreMapsLoaded) return Promise.resolve();
+    if (genreMapsLoading) return genreMapsLoading;
+    genreMapsLoading = (async () => {
+      try {
+        const [movieG, tvG] = await Promise.all([
+          tmdbGet('/genre/movie/list', { language: 'en-US' }),
+          tmdbGet('/genre/tv/list', { language: 'en-US' })
+        ]);
+        (movieG.genres || []).forEach(g => { state.genreMap.movie[g.id] = g.name; });
+        (tvG.genres || []).forEach(g => { state.genreMap.series[g.id] = g.name; });
+        genreMapsLoaded = true;
+      } catch (e) { /* leave maps empty — genre tags just won't show until it succeeds later */ }
+    })();
+    return genreMapsLoading;
+  }
+  function genreNamesFromIds(ids, mediaType) {
+    const map = mediaType === 'series' ? state.genreMap.series : state.genreMap.movie;
+    return (ids || []).map(id => map[id]).filter(Boolean);
+  }
+  function genreTagsHtml(genres, extraClass) {
+    if (!genres || !genres.length) return '';
+    return genres.map(g => '<span class="genre-tag' + (extraClass ? ' ' + extraClass : '') + '">' + escapeHtml(g) + '</span>').join('');
+  }
+
   // --- IMDb ratings (via OMDb) ----------------------------------------------
   // TMDB doesn't expose real IMDb scores, so when an OMDb key is set we look
   // up each title's IMDb id through TMDB (free, already-available data), then
@@ -656,6 +702,7 @@
     state.suggestState = 'loading'; state.suggestError = '';
     renderSuggestPanel();
     try {
+      await ensureGenreMaps();
       const inLibrary = new Set(library.map(m => suggestionKey(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId)));
       const dismissed = loadDismissedSuggestions();
       // Cap how many library titles we fan out from, newest-added first, to keep this to a reasonable number of API calls.
@@ -681,7 +728,8 @@
                 year: yearFromDate(mediaType === 'series' ? r.first_air_date : r.release_date),
                 summary: (r.overview || '').trim(),
                 posterLink: r.poster_path ? TMDB_IMG + r.poster_path : '',
-                popularity: r.popularity || 0
+                popularity: r.popularity || 0,
+                genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 3)
               }
             });
           });
@@ -728,7 +776,7 @@
       id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
       mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
       platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
-      imdbRating: s.imdbRating || undefined
+      imdbRating: s.imdbRating || undefined, genres: s.genres || []
     });
     state.suggestions.splice(idx, 1);
     saveToFirestore();
@@ -774,6 +822,7 @@
       return '<div class="suggest-card">' + img +
         '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + (s.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + imdbBadgeHtml(s.imdbRating) + '</p>' +
         '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
+        (s.genres && s.genres.length ? '<p class="s-genres">' + genreTagsHtml(s.genres, 'small') + '</p>' : '') +
         '<p class="s-summary">' + escapeHtml(s.summary || 'No summary available.') + '</p>' +
         '<div class="s-actions"><button class="btn filled" data-add="' + key + '">Add to watchlist</button><button class="icon-btn" data-dismiss="' + key + '">Not interested</button></div>' +
         '</div></div>';
@@ -795,7 +844,8 @@
         title: r.media_type === 'tv' ? (r.name || '') : (r.title || ''),
         year: yearFromDate(r.media_type === 'tv' ? r.first_air_date : r.release_date),
         language: r.original_language || '',
-        posterPath: r.poster_path || ''
+        posterPath: r.poster_path || '',
+        genreIds: r.genre_ids || []
       }))
       .filter(c => c.title)
       .slice(0, 8);
@@ -840,7 +890,8 @@
       year, mediaType: cand.mediaType,
       summary: (detail.overview || '').trim() || 'No summary available.',
       posterLink: posterPath ? TMDB_IMG + posterPath : '',
-      platforms, tmdbId: cand.tmdbId
+      platforms, tmdbId: cand.tmdbId,
+      genres: (detail.genres || []).map(g => g.name).filter(Boolean)
     };
   }
 
@@ -978,6 +1029,8 @@
         const metaParts = [c.mediaType === 'series' ? 'Series' : 'Movie'];
         const lang = languageName(c.language);
         if (lang) metaParts.push(lang);
+        const genreNames = genreNamesFromIds(c.genreIds, c.mediaType).slice(0, 2);
+        if (genreNames.length) metaParts.push(genreNames.join('/'));
         return '<button type="button" class="choice-item" data-idx="' + i + '">' + posterHtml +
           '<span class="choice-body"><span class="choice-title">' + escapeHtml(c.title) +
           (c.year ? ' <span class="choice-year">(' + escapeHtml(c.year) + ')</span>' : '') + '</span>' +
@@ -997,9 +1050,11 @@
         ? '<div class="platform-pills">' + r.platforms.map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + ' · ' + platformLabel(p.type) + '</span>').join('') + '</div>'
         : '<div class="no-platforms">No streaming, rental, or purchase options found for this region.</div>';
       const posterLinkHtml = isValidLink(r.posterLink) ? '<a class="poster-link" href="' + escapeHtml(r.posterLink) + '" target="_blank" rel="noopener">View poster ↗</a>' : '';
+      const resultGenresHtml = (r.genres && r.genres.length) ? '<p class="genre-line">' + genreTagsHtml(r.genres) + '</p>' : '';
       resultArea.innerHTML =
         '<div class="result-card"><button class="dismiss" id="dismiss-btn" aria-label="Dismiss">✕</button>' +
         '<p class="result-title">' + escapeHtml(r.title) + (r.year ? ' <span class="result-year">(' + escapeHtml(r.year) + ')</span>' : '') + (r.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + '</p>' +
+        resultGenresHtml +
         posterLinkHtml + '<p class="result-summary">' + escapeHtml(r.summary || '') + '</p>' + pillsHtml +
         '<div class="result-actions"><button class="btn filled" id="add-towatch">Add to watchlist</button><button class="btn" id="add-watched">Mark as watched</button></div></div>';
       document.getElementById('dismiss-btn').addEventListener('click', () => { state.searchState = 'idle'; state.searchResult = null; renderResult(); });
@@ -1015,7 +1070,7 @@
     if (existingIdx !== -1) {
       const m = state.movies[existingIdx];
       m.status = status; m.platforms = r.platforms || []; m.summary = r.summary || ''; m.posterLink = r.posterLink || '';
-      m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId;
+      m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId; m.genres = r.genres || m.genres || [];
       finalId = m.id; needsBaseline = m.mediaType === 'series' && !m.latestKnown;
     } else {
       finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
@@ -1023,7 +1078,7 @@
       state.movies.unshift({
         id: finalId, title: r.title, year: r.year || '', summary: r.summary || '', posterLink: r.posterLink || '',
         mediaType: r.mediaType || 'movie', tmdbId: r.tmdbId || null, latestKnown: '', hasUpdate: false,
-        platforms: r.platforms || [], status, addedAt: new Date().toISOString()
+        platforms: r.platforms || [], status, addedAt: new Date().toISOString(), genres: r.genres || []
       });
     }
     saveToFirestore();
@@ -1040,7 +1095,7 @@
     tabSuggested.classList.toggle('active', state.activeTab === 'suggested');
     const isSuggested = state.activeTab === 'suggested';
     mediaFilterEl.style.display = isSuggested ? 'none' : 'flex';
-    listSearchRowEl.style.display = isSuggested ? 'block' : 'none';
+    listSearchRowEl.style.display = isSuggested ? 'none' : 'block';
     listEl.style.display = isSuggested ? 'none' : 'flex';
     suggestPanelEl.style.display = isSuggested ? 'block' : 'none';
     if (isSuggested) {
@@ -1102,10 +1157,11 @@
         }
       }
       const posterImgHtml = isValidLink(m.posterLink) ? '<img class="t-poster" src="' + escapeHtml(m.posterLink) + '" alt="" />' : '<div class="t-poster"></div>';
+      const genresHtml = (m.genres && m.genres.length) ? '<p class="t-genres">' + genreTagsHtml(m.genres, 'small') + '</p>' : '';
       return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '">' + posterImgHtml + '<div class="stub">' + (m.year || '—') + '</div><div class="body">' +
         '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
         (m.mediaType === 'series' ? ' <span class="series-tag">SERIES</span>' : '') + imdbBadgeHtml(m.imdbRating) + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
-        pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
+        genresHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
     }).join('');
   }
 
@@ -1152,6 +1208,47 @@
     state.listSearchQuery = e.target.value;
     renderList();
   });
+
+  // --- Share watchlist (WhatsApp / Instagram) --------------------------------
+  // Builds a plain-text summary of whichever list (To watch / Watched) is
+  // currently open, including title, year, and genre, then hands it off to
+  // WhatsApp's click-to-chat link or, for Instagram (which has no web intent
+  // for arbitrary text), the native share sheet with a clipboard-copy fallback.
+  function buildShareText() {
+    const tab = state.activeTab === 'watched' ? 'watched' : 'towatch';
+    const items = state.movies.filter(m => m.status === tab && (m.mediaType || 'movie') === state.mediaFilter);
+    if (!items.length) return null;
+    const label = tab === 'watched' ? 'Watched' : 'To Watch';
+    const cap = 25;
+    const lines = items.slice(0, cap).map(m => {
+      const genreBit = (m.genres && m.genres.length) ? ' [' + m.genres.slice(0, 2).join('/') + ']' : '';
+      return '🎬 ' + m.title + (m.year ? ' (' + m.year + ')' : '') + genreBit;
+    });
+    let text = '🍿 My "' + label + '" list on Marquee:\n\n' + lines.join('\n');
+    if (items.length > cap) text += '\n…and ' + (items.length - cap) + ' more';
+    return text;
+  }
+  function shareToWhatsApp() {
+    const text = buildShareText();
+    if (!text) { alert('This list is empty — add something first!'); return; }
+    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  }
+  async function shareToInstagram() {
+    const text = buildShareText();
+    if (!text) { alert('This list is empty — add something first!'); return; }
+    if (navigator.share) {
+      try { await navigator.share({ text }); return; } catch (e) { /* cancelled or unsupported — fall through to copy */ }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('List copied! Paste it into an Instagram DM or Story.');
+    } catch (e) {
+      alert('Could not copy automatically — select and copy your list manually.');
+    }
+    window.open('https://www.instagram.com/', '_blank');
+  }
+  document.getElementById('share-whatsapp-btn').addEventListener('click', shareToWhatsApp);
+  document.getElementById('share-instagram-btn').addEventListener('click', shareToInstagram);
 
   regionSelect.addEventListener('change', () => {
     if (regionSelect.value === 'Other') { regionCustom.style.display = 'inline-block'; regionCustom.focus(); }
@@ -1213,6 +1310,7 @@
         // Several matches (same title in different years/languages, or a
         // near-miss on spelling) — let the person pick the right one instead
         // of silently guessing.
+        await ensureGenreMaps();
         state.searchCandidates = candidates;
         state.searchState = 'choices';
       }
@@ -1249,7 +1347,12 @@
   const suggestCache = {};
   function renderSuggestions(list) {
     if (!list || !list.length) { hideSuggestions(); return; }
-    suggestionsEl.innerHTML = list.map(t => '<div class="suggestion-item" data-title="' + escapeHtml(t) + '">' + escapeHtml(t) + '</div>').join('');
+    suggestionsEl.innerHTML = list.map(t =>
+      '<div class="suggestion-item" data-title="' + escapeHtml(t.title) + '">' +
+        '<span class="suggestion-title">' + escapeHtml(t.title) + (t.mediaType === 'series' ? ' <span class="series-tag" style="font-size:9px; padding:0 4px;">SERIES</span>' : '') + '</span>' +
+        (t.genres && t.genres.length ? '<span class="suggestion-genre">' + escapeHtml(t.genres.join(' • ')) + '</span>' : '') +
+      '</div>'
+    ).join('');
     suggestionsEl.style.display = 'block';
   }
   function hideSuggestions() { suggestionsEl.innerHTML = ''; suggestionsEl.style.display = 'none'; }
@@ -1261,10 +1364,16 @@
     suggestionsEl.innerHTML = '<div class="suggestion-loading">Searching titles…</div>';
     suggestionsEl.style.display = 'block';
     try {
+      await ensureGenreMaps();
       const multi = await tmdbGet('/search/multi', { query: q, include_adult: 'false', language: 'en-US', page: 1 });
       if (mySeq !== suggestSeq) return;
       const list = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv').slice(0, 6)
-        .map(r => r.media_type === 'tv' ? (r.name || '') : (r.title || '')).filter(Boolean);
+        .map(r => {
+          const mediaType = r.media_type === 'tv' ? 'series' : 'movie';
+          const title = mediaType === 'series' ? (r.name || '') : (r.title || '');
+          if (!title) return null;
+          return { title, mediaType, genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 2) };
+        }).filter(Boolean);
       suggestCache[key] = list;
       if (mySeq === suggestSeq) renderSuggestions(list);
     } catch (e) { if (mySeq === suggestSeq) hideSuggestions(); }
@@ -1345,6 +1454,7 @@
       renderTabs();
       renderList();
       renderNotifications();
+      if (state.apiKey) ensureGenreMaps();
       maybeAutoSuggest();
       backfillImdbRatings();
       if (state.apiKey) checkAllSeriesUpdates();
