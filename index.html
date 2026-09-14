@@ -75,8 +75,7 @@
   .genre-line, .t-genres, .s-genres { margin: 2px 0 8px; line-height: 1.6; }
   .list-search-share-flex { display: flex; gap: 6px; align-items: center; }
   .list-search-share-flex #list-search { flex: 1; min-width: 0; }
-  .share-btn { min-height: 38px; padding: 0 10px; font-size: 15px; flex-shrink: 0; }
-  .instagram-btn { background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af, #515bd4); color: #fff; border-color: transparent; }
+  .share-btn { min-height: 38px; padding: 0 12px; font-size: 13px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
   #movie-input { width: 100%; min-height: 46px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
   #movie-input:focus, select:focus, .region-custom:focus, #api-key-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   #movie-input::placeholder { color: var(--text-muted); }
@@ -315,8 +314,7 @@
     <div class="list-search-row" id="list-search-row">
       <div class="list-search-share-flex">
         <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
-        <button type="button" class="icon-btn share-btn whatsapp-btn" id="share-whatsapp-btn" title="Share this list on WhatsApp">📲</button>
-        <button type="button" class="icon-btn share-btn instagram-btn" id="share-instagram-btn" title="Share this list on Instagram">📸</button>
+        <button type="button" class="icon-btn share-btn" id="share-list-btn" title="Share this list as an image">📤 Share</button>
       </div>
     </div>
     <div class="suggest-panel" id="suggest-panel" style="display:none;">
@@ -668,6 +666,32 @@
       }
       saveToFirestore();
     } finally { imdbBackfillRunning = false; }
+  }
+  let genreBackfillRunning = false;
+  async function backfillGenres() {
+    if (!state.apiKey || genreBackfillRunning) return;
+    // Titles added before genre tags existed (or added via an older build)
+    // never got a `genres` array saved on them — fetch it once per title here
+    // so everything already in the library catches up, not just new adds.
+    const candidates = state.movies.filter(m => m.tmdbId && (!m.genres || !m.genres.length));
+    if (!candidates.length) return;
+    genreBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          try {
+            const detailPath = m.mediaType === 'series' ? '/tv/' + m.tmdbId : '/movie/' + m.tmdbId;
+            const detail = await tmdbGet(detailPath, { language: 'en-US' });
+            const genres = (detail.genres || []).map(g => g.name).filter(Boolean);
+            if (genres.length) m.genres = genres;
+          } catch (e) { /* skip — will retry on a future backfill */ }
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { genreBackfillRunning = false; }
   }
   async function attachImdbRatingsToSuggestions() {
     if (!state.omdbKey || !state.suggestions.length) return;
@@ -1083,7 +1107,7 @@
     }
     saveToFirestore();
     state.searchState = 'idle'; state.searchResult = null; input.value = '';
-    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings();
+    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings(); backfillGenres();
     if (needsBaseline) establishSeriesBaseline(finalId);
   }
 
@@ -1124,9 +1148,10 @@
       const pills = (m.platforms && m.platforms.length)
         ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
         : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
-      const actions = m.status === 'towatch'
+      const actions = (m.status === 'towatch'
         ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
-        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>';
+        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
+        + '<button class="icon-btn" data-action="share" data-id="' + m.id + '" title="Share as image">📤</button>';
       let updateBannerHtml = '';
       if (m.hasUpdate) {
         const detail = m.updateDetail || m.latestKnown || 'a new episode/season';
@@ -1172,13 +1197,14 @@
     const action = btn.getAttribute('data-action');
     if (action === 'toggle-details') { toggleDetails(id); return; }
     if (action === 'refresh-details') { expandedIds.add(id); fetchSeasonDetails(id); return; }
+    if (action === 'share') { const movieToShare = state.movies.find(m => m.id === id); if (movieToShare) shareMovie(movieToShare); return; }
     const movie = state.movies.find(m => m.id === id);
     if (!movie) return;
     if (action === 'watched') movie.status = 'watched';
     if (action === 'towatch') movie.status = 'towatch';
     if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
-    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest(); backfillImdbRatings();
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest(); backfillImdbRatings(); backfillGenres();
   });
 
   document.getElementById('suggest-refresh-btn').addEventListener('click', (e) => {
@@ -1209,46 +1235,257 @@
     renderList();
   });
 
-  // --- Share watchlist (WhatsApp / Instagram) --------------------------------
-  // Builds a plain-text summary of whichever list (To watch / Watched) is
-  // currently open, including title, year, and genre, then hands it off to
-  // WhatsApp's click-to-chat link or, for Instagram (which has no web intent
-  // for arbitrary text), the native share sheet with a clipboard-copy fallback.
-  function buildShareText() {
-    const tab = state.activeTab === 'watched' ? 'watched' : 'towatch';
-    const items = state.movies.filter(m => m.status === tab && (m.mediaType || 'movie') === state.mediaFilter);
-    if (!items.length) return null;
-    const label = tab === 'watched' ? 'Watched' : 'To Watch';
-    const cap = 25;
-    const lines = items.slice(0, cap).map(m => {
-      const genreBit = (m.genres && m.genres.length) ? ' [' + m.genres.slice(0, 2).join('/') + ']' : '';
-      return '🎬 ' + m.title + (m.year ? ' (' + m.year + ')' : '') + genreBit;
+  // --- Share as image (PNG) --------------------------------------------------
+  // Renders a branded PNG — either the whole current list or a single title,
+  // with genre, IMDb rating, and where-to-watch info baked into the image —
+  // then hands it to the native share sheet (covers WhatsApp, Instagram, etc.
+  // in one tap) with a download fallback for browsers that can't share files.
+  function ensureFontsReady() { return (document.fonts && document.fonts.ready) ? document.fonts.ready.catch(() => {}) : Promise.resolve(); }
+  function loadImageEl(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = src;
     });
-    let text = '🍿 My "' + label + '" list on Marquee:\n\n' + lines.join('\n');
-    if (items.length > cap) text += '\n…and ' + (items.length - cap) + ' more';
-    return text;
   }
-  function shareToWhatsApp() {
-    const text = buildShareText();
-    if (!text) { alert('This list is empty — add something first!'); return; }
-    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   }
-  async function shareToInstagram() {
-    const text = buildShareText();
-    if (!text) { alert('This list is empty — add something first!'); return; }
-    if (navigator.share) {
-      try { await navigator.share({ text }); return; } catch (e) { /* cancelled or unsupported — fall through to copy */ }
+  function truncateToWidth(ctx, text, maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t + '…';
+  }
+  // Draws left-to-right pill "chips" (genres, platforms), wrapping to a new row
+  // when a chip would overflow maxWidth. Returns the y position after the chips.
+  function drawChips(ctx, items, x, y, maxWidth, fontPx, textColor, bgColor) {
+    if (!items || !items.length) return y;
+    const padX = 10, padY = 5, gap = 8, lineHeight = fontPx + padY * 2 + 6;
+    ctx.font = '700 ' + fontPx + 'px Inter, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    let curX = x, curY = y;
+    items.forEach(text => {
+      const w = ctx.measureText(text).width + padX * 2;
+      if (curX !== x && curX + w > x + maxWidth) { curX = x; curY += lineHeight; }
+      ctx.fillStyle = bgColor;
+      roundRectPath(ctx, curX, curY, w, fontPx + padY * 2, (fontPx + padY * 2) / 2);
+      ctx.fill();
+      ctx.fillStyle = textColor;
+      ctx.fillText(text, curX + padX, curY + fontPx + padY - 3);
+      curX += w + gap;
+    });
+    return curY + lineHeight;
+  }
+  function platformChipLabel(p) { return p.name + ' · ' + platformLabel(p.type); }
+
+  async function renderListToCanvas(tab, mediaFilter) {
+    await ensureFontsReady();
+    const items = state.movies.filter(m => m.status === tab && (m.mediaType || 'movie') === mediaFilter);
+    const width = 720, paddingX = 40, maxCards = 12;
+    const shown = items.slice(0, maxCards);
+    const cardHeight = 118;
+    const headerHeight = 108;
+    const footerHeight = 46;
+    const overflowHeight = items.length > maxCards ? 34 : 0;
+    const height = headerHeight + Math.max(shown.length, 1) * cardHeight + overflowHeight + footerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#E8B94D';
+    ctx.font = '700 38px "Bebas Neue"';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('MARQUEE', paddingX, 52);
+    ctx.fillStyle = '#9AA0BE';
+    ctx.font = '400 15px Inter, sans-serif';
+    const label = tab === 'watched' ? 'Watched' : 'To Watch';
+    const filterLabel = mediaFilter === 'series' ? 'Series' : 'Movies';
+    ctx.fillText('My "' + label + '" list · ' + filterLabel, paddingX, 76);
+    ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(paddingX, headerHeight - 14); ctx.lineTo(width - paddingX, headerHeight - 14); ctx.stroke();
+
+    if (!shown.length) {
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 16px Inter, sans-serif';
+      ctx.fillText('Nothing here yet.', paddingX, headerHeight + 40);
     }
+    let y = headerHeight;
+    shown.forEach(m => {
+      const cardTop = y + 14;
+      ctx.fillStyle = '#F3F1EA';
+      ctx.font = '700 24px "Bebas Neue"';
+      const title = m.title + (m.year ? ' (' + m.year + ')' : '') + (m.mediaType === 'series' ? '  ·  SERIES' : '');
+      let rightEdge = width - paddingX;
+      if (m.imdbRating) {
+        const badgeText = 'IMDb ' + m.imdbRating;
+        ctx.font = '700 13px Inter, sans-serif';
+        const bw = ctx.measureText(badgeText).width + 16;
+        ctx.fillStyle = '#E8B94D';
+        roundRectPath(ctx, width - paddingX - bw, cardTop, bw, 22, 6); ctx.fill();
+        ctx.fillStyle = '#1A1500';
+        ctx.fillText(badgeText, width - paddingX - bw + 8, cardTop + 15);
+        rightEdge = width - paddingX - bw - 12;
+      }
+      ctx.fillStyle = '#F3F1EA';
+      ctx.font = '700 24px "Bebas Neue"';
+      ctx.fillText(truncateToWidth(ctx, title, rightEdge - paddingX), paddingX, cardTop + 20);
+
+      const genreText = (m.genres && m.genres.length) ? m.genres.slice(0, 3).join('  •  ') : 'Genre unknown';
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, genreText, width - paddingX * 2), paddingX, cardTop + 46);
+
+      const platformNames = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 3).map(p => p.name).join(', ') : 'No availability found';
+      ctx.fillStyle = '#7FB3D5';
+      ctx.font = '400 13px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, 'Watch on: ' + platformNames, width - paddingX * 2), paddingX, cardTop + 68);
+
+      const dividerY = y + cardHeight - 6;
+      ctx.strokeStyle = 'rgba(51,57,92,0.6)';
+      ctx.beginPath(); ctx.moveTo(paddingX, dividerY); ctx.lineTo(width - paddingX, dividerY); ctx.stroke();
+      y += cardHeight;
+    });
+    if (items.length > maxCards) {
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText('…and ' + (items.length - maxCards) + ' more', paddingX, y + 24);
+      y += overflowHeight;
+    }
+    ctx.fillStyle = '#9AA0BE';
+    ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', paddingX, height - 18);
+    return canvas;
+  }
+
+  async function renderMovieToCanvas(m) {
+    await ensureFontsReady();
+    const width = 720, height = 380;
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
+
+    const posterX = 40, posterY = 44, posterW = 190, posterH = 285;
+    let posterDrawn = false;
+    if (isValidLink(m.posterLink)) {
+      try { const img = await loadImageEl(m.posterLink); ctx.drawImage(img, posterX, posterY, posterW, posterH); posterDrawn = true; }
+      catch (e) { /* CORS or network failure — fall back to a plain placeholder box */ }
+    }
+    if (!posterDrawn) {
+      ctx.fillStyle = '#1B2038'; ctx.fillRect(posterX, posterY, posterW, posterH);
+      ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1; ctx.strokeRect(posterX, posterY, posterW, posterH);
+      ctx.fillStyle = '#9AA0BE'; ctx.font = '400 13px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('No poster', posterX + posterW / 2, posterY + posterH / 2);
+      ctx.textAlign = 'left';
+    }
+
+    const textX = posterX + posterW + 32;
+    const textWidth = width - textX - 36;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#E8B94D';
+    ctx.font = '700 20px "Bebas Neue"';
+    ctx.fillText('MARQUEE', textX, 40);
+
+    ctx.fillStyle = '#F3F1EA';
+    ctx.font = '700 32px "Bebas Neue"';
+    const titleLine = m.title + (m.year ? ' (' + m.year + ')' : '');
+    let ty = 78;
+    // simple word-wrap across up to two lines
+    const words = titleLine.split(' ');
+    let line = '', lines = [];
+    words.forEach(w => {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > textWidth && line) { lines.push(line); line = w; } else { line = test; }
+    });
+    if (line) lines.push(line);
+    lines.slice(0, 2).forEach((l, i) => { ctx.fillText(l, textX, ty + i * 36); });
+    ty += lines.slice(0, 2).length * 36 + 4;
+
+    if (m.mediaType === 'series') {
+      ctx.fillStyle = '#E8B94D'; ctx.font = '700 12px Inter, sans-serif';
+      const sw = ctx.measureText('SERIES').width + 14;
+      roundRectPath(ctx, textX, ty, sw, 20, 5); ctx.fill();
+      ctx.fillStyle = '#16213e'; ctx.fillText('SERIES', textX + 7, ty + 14);
+      ty += 32;
+    }
+    if (m.imdbRating) {
+      ctx.font = '700 14px Inter, sans-serif';
+      const badgeText = 'IMDb ' + m.imdbRating;
+      const bw = ctx.measureText(badgeText).width + 16;
+      ctx.fillStyle = '#E8B94D';
+      roundRectPath(ctx, textX, ty, bw, 24, 6); ctx.fill();
+      ctx.fillStyle = '#1A1500';
+      ctx.fillText(badgeText, textX + 8, ty + 17);
+      ty += 36;
+    } else {
+      ty += 8;
+    }
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('GENRE', textX, ty); ty += 8;
+    const genres = (m.genres && m.genres.length) ? m.genres.slice(0, 4) : ['Not available'];
+    ty = drawChips(ctx, genres, textX, ty, textWidth, 13, '#E8B94D', 'rgba(232,185,77,0.14)') + 6;
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('WHERE TO WATCH', textX, ty); ty += 8;
+    const platformChips = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 4).map(platformChipLabel) : ['No availability found'];
+    ty = drawChips(ctx, platformChips, textX, ty, textWidth, 13, '#7FB3D5', 'rgba(127,179,213,0.14)');
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', textX, height - 18);
+    return canvas;
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      try { canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob returned nothing')), 'image/png'); }
+      catch (e) { reject(e); }
+    });
+  }
+
+  async function shareCanvasAsPng(canvas, filename, shareTitle) {
+    let blob;
+    try { blob = await canvasToPngBlob(canvas); }
+    catch (e) { console.error(e); alert("Couldn't generate the image. Please try again."); return; }
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: shareTitle }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; /* otherwise fall through to download */ }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    alert('Image saved! Attach it from your downloads/gallery in WhatsApp, Instagram, etc.');
+  }
+
+  async function shareCurrentList() {
+    const tab = state.activeTab === 'watched' ? 'watched' : 'towatch';
+    const hasItems = state.movies.some(m => m.status === tab && (m.mediaType || 'movie') === state.mediaFilter);
+    if (!hasItems) { alert('This list is empty — add something first!'); return; }
+    const btn = document.getElementById('share-list-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
     try {
-      await navigator.clipboard.writeText(text);
-      alert('List copied! Paste it into an Instagram DM or Story.');
-    } catch (e) {
-      alert('Could not copy automatically — select and copy your list manually.');
-    }
-    window.open('https://www.instagram.com/', '_blank');
+      const canvas = await renderListToCanvas(tab, state.mediaFilter);
+      await shareCanvasAsPng(canvas, 'marquee-' + tab + '.png', 'My Marquee list');
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = '📤 Share'; } }
   }
-  document.getElementById('share-whatsapp-btn').addEventListener('click', shareToWhatsApp);
-  document.getElementById('share-instagram-btn').addEventListener('click', shareToInstagram);
+
+  async function shareMovie(m) {
+    await shareCanvasAsPng(await renderMovieToCanvas(m), 'marquee-' + m.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png', m.title);
+  }
+
+  document.getElementById('share-list-btn').addEventListener('click', shareCurrentList);
 
   regionSelect.addEventListener('change', () => {
     if (regionSelect.value === 'Other') { regionCustom.style.display = 'inline-block'; regionCustom.focus(); }
@@ -1457,6 +1694,7 @@
       if (state.apiKey) ensureGenreMaps();
       maybeAutoSuggest();
       backfillImdbRatings();
+      backfillGenres();
       if (state.apiKey) checkAllSeriesUpdates();
     } else {
       state.user = null;
