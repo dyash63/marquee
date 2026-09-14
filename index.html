@@ -600,7 +600,11 @@
   let imdbBackfillRunning = false;
   async function backfillImdbRatings() {
     if (!state.omdbKey || imdbBackfillRunning) return;
-    const candidates = state.movies.filter(m => m.tmdbId && m.imdbRating === undefined);
+    // Treat both "never checked" (undefined) and "checked, came up empty"
+    // (null, saved by an older build before this was fixed) as retry
+    // candidates — a null here doesn't mean the title will never be rated,
+    // it just meant the last attempt failed or found nothing at the time.
+    const candidates = state.movies.filter(m => m.tmdbId && (m.imdbRating === undefined || m.imdbRating === null));
     if (!candidates.length) return;
     imdbBackfillRunning = true;
     try {
@@ -781,8 +785,8 @@
   // rather than silently guessing at the top hit (which is often wrong for
   // misspellings, or ambiguous for common titles that exist in several
   // languages/years).
-  async function fetchSearchCandidates(title) {
-    const multi = await tmdbGet('/search/multi', { query: title, include_adult: 'false', language: 'en-US', page: 1 });
+  async function fetchSearchCandidatesRaw(query) {
+    const multi = await tmdbGet('/search/multi', { query, include_adult: 'false', language: 'en-US', page: 1 });
     return (multi.results || [])
       .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
       .map(r => ({
@@ -795,6 +799,29 @@
       }))
       .filter(c => c.title)
       .slice(0, 8);
+  }
+
+  // TMDB's search is closer to prefix/substring matching than true fuzzy
+  // spelling correction — a single missing/extra letter anywhere in the query
+  // (e.g. "kaalakandi" for "Kaalakaandi") can return zero results even though
+  // a human would recognize it instantly. If the exact query comes up empty,
+  // retry against shorter prefixes of it: the part of the query typed
+  // correctly before the typo usually still lines up with the real title.
+  async function fetchSearchCandidates(title) {
+    const trimmed = title.trim();
+    let candidates = await fetchSearchCandidatesRaw(trimmed);
+    if (!candidates.length) {
+      const tried = new Set([trimmed.toLowerCase()]);
+      for (let len = trimmed.length - 1; len >= 4 && len >= trimmed.length - 3; len--) {
+        const prefix = trimmed.slice(0, len);
+        const key = prefix.toLowerCase();
+        if (tried.has(key)) continue;
+        tried.add(key);
+        candidates = await fetchSearchCandidatesRaw(prefix);
+        if (candidates.length) break;
+      }
+    }
+    return candidates;
   }
 
   // Fetches full detail + region availability for one chosen candidate.
