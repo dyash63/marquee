@@ -251,7 +251,7 @@
         </select>
         <input id="region-custom" class="region-custom" type="text" placeholder="ISO code e.g. DE" maxlength="2" style="display:none; width:90px;" />
       </div>
-      <div class="settings-row" id="settings-row">
+      <div class="settings-row" id="settings-row" style="display:none;">
         <button type="button" class="settings-toggle" id="settings-toggle">TMDB API key (free)</button>
         <div class="api-key-panel" id="api-key-panel">
           <label for="api-key-input">TMDB API key — free, no credit card</label>
@@ -268,7 +268,7 @@
           </p>
         </div>
       </div>
-      <div class="settings-row" id="omdb-settings-row">
+      <div class="settings-row" id="omdb-settings-row" style="display:none;">
         <button type="button" class="settings-toggle" id="omdb-settings-toggle">IMDb ratings — free OMDb key</button>
         <div class="api-key-panel" id="omdb-key-panel">
           <label for="omdb-key-input">OMDb API key — free, shows real IMDb ratings</label>
@@ -338,12 +338,16 @@
   const STORAGE_PREFIX = 'marquee_';
   const TMDB_BASE = 'https://api.themoviedb.org/3';
   const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+  // Shared app-wide keys — every signed-in user rides on these, so nobody
+  // is ever asked to bring their own. The key-entry UI is hidden below.
+  const SHARED_TMDB_KEY = 'e4b02faabb3499e61ae71ba7b320e064';
+  const SHARED_OMDB_KEY = '527fd7fc';
 
   const state = {
     user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'movie',
-    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: '', apiKeyFromCloud: false, lastQuery: '', saving: false,
+    searchState: 'idle', searchResult: null, errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
     suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
-    omdbKey: '', omdbKeyFromCloud: false
+    omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false
   };
   const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
   const imdbCache = {};
