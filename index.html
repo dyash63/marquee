@@ -168,8 +168,6 @@
   .suggest-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; }
   .suggest-status { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .imdb-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #16213e; background: var(--gold); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
-  .list-toolbar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-  .list-toolbar .icon-btn { font-size: 12px; }
   .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
   #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
   #auth-overlay.hidden { display: none; }
@@ -202,7 +200,6 @@
       <li>See where to stream, rent, or buy — for your region</li>
       <li>Personalized “Suggested for you” recommendations</li>
       <li>Real IMDb ratings on your titles</li>
-      <li>Export & import your list anytime</li>
       <li>100% free — no credit card ever</li>
     </ul>
     <button type="button" class="google-btn" id="google-signin-btn">
@@ -307,11 +304,6 @@
         </span>
       </div>
       <div id="suggest-body"></div>
-    </div>
-    <div class="list-toolbar">
-      <button class="icon-btn" id="export-btn">Export backup</button>
-      <button class="icon-btn" id="import-btn">Import backup</button>
-      <input type="file" id="import-file" accept="application/json" style="display:none;" />
     </div>
     <div id="storage-banner"></div>
     <div id="list"></div>
@@ -508,40 +500,6 @@
     else { omdbKeyStatus.textContent = 'No key set'; omdbKeyStatus.style.color = 'var(--text-muted)'; }
     const omdbRow = document.getElementById('omdb-settings-row');
     if (omdbRow) omdbRow.style.display = state.omdbKey ? 'none' : '';
-  }
-
-  function exportMovies() {
-    const blob = new Blob([JSON.stringify(state.movies, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'marquee-watchlist.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  }
-
-  function importMoviesFromFile(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      let imported;
-      try { imported = JSON.parse(reader.result); if (!Array.isArray(imported)) throw new Error(); }
-      catch (e) { alert("That file doesn't look like a Marquee backup."); return; }
-      imported.forEach(m => {
-        if (!m || !m.title) return;
-        const idx = state.movies.findIndex(x => x.title.toLowerCase() === String(m.title).toLowerCase() && x.year === (m.year || ''));
-        const clean = {
-          id: idx !== -1 ? state.movies[idx].id : (Date.now() + '-' + Math.random().toString(36).slice(2, 8)),
-          title: m.title, year: m.year || '', summary: m.summary || '',
-          platforms: Array.isArray(m.platforms) ? m.platforms : [],
-          status: m.status === 'watched' ? 'watched' : 'towatch',
-          mediaType: m.mediaType || 'movie', posterLink: m.posterLink || '',
-          tmdbId: m.tmdbId || null, latestKnown: m.latestKnown || '',
-          hasUpdate: !!m.hasUpdate, updateDetail: m.updateDetail || '',
-          addedAt: m.addedAt || new Date().toISOString()
-        };
-        if (idx !== -1) state.movies[idx] = clean; else state.movies.push(clean);
-      });
-      saveToFirestore(true); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings();
-      alert('Imported ' + imported.length + ' title(s).');
-    };
-    reader.readAsText(file);
   }
 
   function requireApiKey() {
@@ -1020,8 +978,8 @@
       const filterWord = state.mediaFilter === 'series' ? 'series' : 'movies';
       if (q) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim()) + '”.</div>'; return; }
       listEl.innerHTML = state.activeTab === 'towatch'
-        ? '<div class="empty-state">No ' + filterWord + ' booked yet.<br/>Search above to add one.</div>'
-        : '<div class="empty-state">No ' + filterWord + ' watched yet.<br/>Once you finish one, mark it here.</div>';
+        ? '<div class="empty-state">Your marquee is empty.<br/>Search above to add ' + filterWord + '.</div>'
+        : '<div class="empty-state">Nothing watched yet.<br/>Once you finish one, mark it here.</div>';
       return;
     }
     listEl.innerHTML = items.map(m => {
@@ -1213,13 +1171,6 @@
     input.value = item.getAttribute('data-title');
     hideSuggestions();
     doSearch(input.value);
-  });
-
-  document.getElementById('export-btn').addEventListener('click', exportMovies);
-  document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
-  document.getElementById('import-file').addEventListener('change', () => {
-    const f = document.getElementById('import-file');
-    if (f.files && f.files[0]) { importMoviesFromFile(f.files[0]); f.value = ''; }
   });
 
   googleBtn.addEventListener('click', signInWithGoogle);
