@@ -28,11 +28,19 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
-  :root {
+  :root, [data-theme="dark"] {
     --bg: #12162A; --bg-elevated: #1B2038; --card-border: #33395C;
     --gold: #E8B94D; --gold-dim: rgba(232, 185, 77, 0.14); --red-stamp: #C1443D;
     --text: #F3F1EA; --text-muted: #9AA0BE;
     --stream: #E8B94D; --rent: #7FB3D5; --buy: #B7BCD6; --free: #7FC29B;
+    --theme-meta: #12162A;
+  }
+  [data-theme="light"] {
+    --bg: #F4F1E8; --bg-elevated: #FFFFFF; --card-border: #D4CFC0;
+    --gold: #C4921A; --gold-dim: rgba(196, 146, 26, 0.12); --red-stamp: #C1443D;
+    --text: #1A1D2E; --text-muted: #6B7089;
+    --stream: #C4921A; --rent: #3A7CA5; --buy: #5A6080; --free: #3D8B63;
+    --theme-meta: #F4F1E8;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -115,13 +123,38 @@
   .tabs { display: flex; margin-top: 26px; border-bottom: 1px solid var(--card-border); }
   .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
-  .media-filter { display: flex; gap: 6px; margin-top: 10px; }
+  .media-filter { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
   .list-search-row { margin-top: 10px; }
   #list-search { width: 100%; min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
   #list-search::placeholder { color: var(--text-muted); }
   #list-search:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   .filter-btn { background: var(--bg-elevated); border: 1px solid var(--card-border); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
   .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
+  .filter-btn.has-update-filter.active { color: #fff; background: var(--red-stamp); border-color: var(--red-stamp); }
+  .theme-toggle {
+    position: absolute; top: 2px; right: 0; background: var(--bg-elevated); border: 1px solid var(--card-border);
+    color: var(--text); border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; z-index: 5; line-height: 1;
+  }
+  .theme-toggle:hover, .theme-toggle:active { border-color: var(--gold); }
+  .upcoming-panel {
+    margin-top: 14px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated);
+    padding: 12px; display: none;
+  }
+  .upcoming-panel.visible { display: block; }
+  .upcoming-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .upcoming-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: var(--gold); margin: 0; }
+  .upcoming-item {
+    display: flex; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--card-border); cursor: pointer;
+  }
+  .upcoming-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .upcoming-item:active { opacity: 0.85; }
+  .upcoming-poster { width: 36px; height: 54px; border-radius: 4px; object-fit: cover; background: var(--card-border); flex-shrink: 0; }
+  .upcoming-body { flex: 1; min-width: 0; }
+  .upcoming-show { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .upcoming-ep { font-size: 12px; color: var(--gold); margin-top: 2px; }
+  .upcoming-date { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .upcoming-empty { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
   #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
   .ticket { position: relative; display: flex; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); overflow: hidden; }
   .ticket .t-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); margin: 12px 0 12px 12px; }
@@ -149,11 +182,16 @@
   .notif-bell { position: relative; background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer; padding: 4px 6px; color: var(--text); }
   .notif-count { position: absolute; top: -3px; right: -3px; background: var(--red-stamp); color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; min-width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
   .notif-dropdown { position: absolute; top: 32px; left: 0; width: 250px; max-height: 320px; overflow-y: auto; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); z-index: 30; padding: 6px; }
-  .notif-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+  .notif-item { display: flex; align-items: flex-start; gap: 6px; padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
   .notif-item:last-child { margin-bottom: 0; }
   .notif-item:hover, .notif-item:active { background: var(--gold-dim); }
+  .notif-item .notif-body { flex: 1; min-width: 0; }
   .notif-item .notif-title { display: block; font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
   .notif-item .notif-detail { display: block; font-size: 11px; color: var(--text-muted); }
+  .notif-clear-btn { flex-shrink: 0; background: none; border: none; color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+  .notif-clear-btn:hover, .notif-clear-btn:active { color: var(--text); background: rgba(255,255,255,0.08); }
+  .notif-clear-all { display: block; width: 100%; margin-top: 4px; padding: 6px 10px; font-size: 11px; font-weight: 600; color: var(--text-muted); background: none; border: 1px solid var(--card-border); border-radius: 6px; cursor: pointer; text-align: center; }
+  .notif-clear-all:hover, .notif-clear-all:active { color: var(--text); border-color: var(--gold); }
   .notif-empty { padding: 14px 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
   .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
@@ -199,7 +237,7 @@
   .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
   .google-btn svg { width: 18px; height: 18px; }
   .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
-  .user-bar { position: absolute; top: 2px; right: 0; display: flex; align-items: center; gap: 6px; max-width: 150px; }
+  .user-bar { position: absolute; top: 2px; right: 42px; display: flex; align-items: center; gap: 6px; max-width: 150px; }
   .user-bar .user-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; color: var(--text-muted); font-size: 11px; }
   .user-bar .logout-btn { background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 10px; padding: 2px 0; cursor: pointer; text-decoration: underline; flex-shrink: 0; }
@@ -240,6 +278,7 @@
       </button>
       <div class="notif-dropdown" id="notif-dropdown" style="display:none;"></div>
     </div>
+    <button type="button" class="theme-toggle" id="theme-toggle" title="Toggle light/dark theme" aria-label="Toggle theme">🌙</button>
     <div class="user-bar" id="user-bar">
       <div class="user-info">
         <span class="user-name" id="user-name">Signed in</span>
@@ -310,6 +349,13 @@
     <div class="media-filter" id="media-filter">
       <button class="filter-btn active" data-filter="movie">Movies</button>
       <button class="filter-btn" data-filter="series">Series</button>
+      <button class="filter-btn has-update-filter" data-filter="has-update" id="filter-has-update">🆕 New episodes</button>
+    </div>
+    <div class="upcoming-panel" id="upcoming-panel">
+      <div class="upcoming-header">
+        <p class="upcoming-title">📅 Coming up this week</p>
+      </div>
+      <div id="upcoming-body"></div>
     </div>
     <div class="list-search-row" id="list-search-row">
       <div class="list-search-share-flex">
@@ -367,7 +413,9 @@
     searchState: 'idle', searchResult: null, searchCandidates: [], errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
     suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
     omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false,
-    genreMap: { movie: {}, series: {} }
+    genreMap: { movie: {}, series: {} },
+    hasUpdateFilter: false,
+    theme: (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_PREFIX + 'theme')) || 'dark'
   };
   const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
   const imdbCache = {};
@@ -954,10 +1002,21 @@
       const latestKnown = last ? ('Season ' + last.season_number + (last.episode_number ? ', Ep ' + last.episode_number : '')) : (detail.number_of_seasons ? ('Season ' + detail.number_of_seasons) : '');
       const todayStr = new Date().toISOString().slice(0, 10);
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
       let newRelease = false, releaseDetail = '';
       if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + last.season_number + 'E' + last.episode_number; }
       if (next && next.air_date && (next.air_date === todayStr || next.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + next.season_number + 'E' + next.episode_number; }
-      return { newRelease, releaseDetail, latestKnown };
+      // Upcoming episode within the next 7 days (including today)
+      let upcoming = null;
+      if (next && next.air_date && next.air_date >= todayStr && next.air_date <= weekAhead) {
+        const code = 'S' + next.season_number + 'E' + next.episode_number;
+        upcoming = {
+          code,
+          airDate: next.air_date,
+          label: code + (next.name ? ' · ' + next.name : '')
+        };
+      }
+      return { newRelease, releaseDetail, latestKnown, upcoming };
     } catch (e) { return null; }
   }
 
@@ -968,13 +1027,14 @@
     const m2 = state.movies.find(mm => mm.id === id);
     if (!m2 || !res) return;
     if (res.latestKnown) m2.latestKnown = res.latestKnown;
+    m2.upcomingEpisode = res.upcoming || null;
     if (res.newRelease) {
       const wasWatched = m2.status === 'watched';
       m2.hasUpdate = true;
       m2.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
       if (wasWatched) m2.status = 'towatch';
     }
-    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); renderUpcomingWeek();
   }
 
   function renderNotifications() {
@@ -986,23 +1046,36 @@
     else { countEl.style.display = 'none'; }
     dropdown.innerHTML = updated.length
       ? updated.map(m => '<div class="notif-item" data-id="' + m.id + '">' +
-          '<span class="notif-title">🆕 ' + escapeHtml(m.title) + '</span>' +
-          '<span class="notif-detail">' + escapeHtml(m.updateDetail || m.latestKnown || 'New episode/season') + '</span>' +
-          '</div>').join('')
+          '<div class="notif-body">' +
+            '<span class="notif-title">🆕 ' + escapeHtml(m.title) + '</span>' +
+            '<span class="notif-detail">' + escapeHtml(m.updateDetail || m.latestKnown || 'New episode/season') + '</span>' +
+          '</div>' +
+          '<button type="button" class="notif-clear-btn" data-action="clear-notif" data-id="' + m.id + '" title="Clear notification" aria-label="Clear">×</button>' +
+          '</div>').join('') +
+          '<button type="button" class="notif-clear-all" data-action="clear-all-notifs">Clear all</button>'
       : '<div class="notif-empty">No new episodes or seasons yet.</div>';
   }
 
   async function checkAllSeriesUpdates() {
     if (!state.apiKey) return;
     const seriesList = state.movies.filter(m => m.mediaType === 'series' && m.tmdbId);
-    if (!seriesList.length) { renderNotifications(); return; }
+    if (!seriesList.length) { renderNotifications(); renderUpcomingWeek(); return; }
     const results = await Promise.all(seriesList.map(m => checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))));
     let any = false;
     results.forEach(({ id, res }) => {
       if (!res) return;
       const movie = state.movies.find(m => m.id === id);
       if (!movie) return;
-      if (res.latestKnown) movie.latestKnown = res.latestKnown;
+      if (res.latestKnown && movie.latestKnown !== res.latestKnown) {
+        movie.latestKnown = res.latestKnown;
+        any = true;
+      }
+      const prevUp = movie.upcomingEpisode && movie.upcomingEpisode.airDate;
+      const nextUp = res.upcoming && res.upcoming.airDate;
+      if (prevUp !== nextUp || (res.upcoming && (!movie.upcomingEpisode || movie.upcomingEpisode.code !== res.upcoming.code))) {
+        movie.upcomingEpisode = res.upcoming || null;
+        any = true;
+      }
       if (res.newRelease) {
         const wasWatched = movie.status === 'watched';
         movie.hasUpdate = true;
@@ -1013,6 +1086,7 @@
     });
     if (any) { saveToFirestore(); renderTabs(); renderList(); }
     renderNotifications();
+    renderUpcomingWeek();
   }
 
   async function fetchSeasonDetails(id) {
@@ -1122,6 +1196,9 @@
     listSearchRowEl.style.display = isSuggested ? 'none' : 'block';
     listEl.style.display = isSuggested ? 'none' : 'flex';
     suggestPanelEl.style.display = isSuggested ? 'block' : 'none';
+    const upcomingPanel = document.getElementById('upcoming-panel');
+    if (upcomingPanel) upcomingPanel.style.display = isSuggested ? 'none' : '';
+    if (!isSuggested) renderUpcomingWeek();
     if (isSuggested) {
       const libraryCount = state.movies.filter(m => m.tmdbId).length;
       if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
@@ -1132,11 +1209,68 @@
     }
   }
 
+  function weekdayLabel(isoDate) {
+    if (!isoDate) return '';
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (isoDate === todayStr) return 'Today';
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    if (isoDate === tomorrow) return 'Tomorrow';
+    try {
+      const d = new Date(isoDate + 'T12:00:00');
+      return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+    } catch (e) { return formatDMY(isoDate); }
+  }
+
+  function renderUpcomingWeek() {
+    const panel = document.getElementById('upcoming-panel');
+    const body = document.getElementById('upcoming-body');
+    if (!panel || !body) return;
+    if (state.activeTab === 'suggested') { panel.classList.remove('visible'); return; }
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const weekAhead = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    const items = state.movies
+      .filter(m => m.mediaType === 'series' && m.upcomingEpisode && m.upcomingEpisode.airDate
+        && m.upcomingEpisode.airDate >= todayStr && m.upcomingEpisode.airDate <= weekAhead)
+      .sort((a, b) => a.upcomingEpisode.airDate.localeCompare(b.upcomingEpisode.airDate));
+    if (!items.length) {
+      panel.classList.remove('visible');
+      body.innerHTML = '';
+      return;
+    }
+    panel.classList.add('visible');
+    body.innerHTML = items.map(m => {
+      const ep = m.upcomingEpisode;
+      const poster = isValidLink(m.posterLink)
+        ? '<img class="upcoming-poster" src="' + escapeHtml(m.posterLink) + '" alt="" />'
+        : '<div class="upcoming-poster"></div>';
+      return '<div class="upcoming-item" data-upcoming-id="' + m.id + '">' + poster +
+        '<div class="upcoming-body">' +
+          '<div class="upcoming-show">' + escapeHtml(m.title) + '</div>' +
+          '<div class="upcoming-ep">' + escapeHtml(ep.label || ep.code) + '</div>' +
+          '<div class="upcoming-date">' + escapeHtml(weekdayLabel(ep.airDate)) + ' · ' + escapeHtml(formatDMY(ep.airDate)) + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
   function renderList() {
     const q = state.listSearchQuery.trim().toLowerCase();
-    const items = state.movies.filter(m => m.status === state.activeTab && (m.mediaType || 'movie') === state.mediaFilter
-      && (!q || m.title.toLowerCase().includes(q)));
+    const items = state.movies.filter(m => {
+      if (m.status !== state.activeTab) return false;
+      if (state.hasUpdateFilter) {
+        if (!m.hasUpdate) return false;
+      } else if ((m.mediaType || 'movie') !== state.mediaFilter) {
+        return false;
+      }
+      if (q && !m.title.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    // New-episode tiles (hasUpdate) always sort to the top of the list
+    items.sort((a, b) => (b.hasUpdate ? 1 : 0) - (a.hasUpdate ? 1 : 0));
     if (!items.length) {
+      if (state.hasUpdateFilter) {
+        listEl.innerHTML = '<div class="empty-state">No new episodes right now.<br/>Check back after the next air date.</div>';
+        return;
+      }
       const filterWord = state.mediaFilter === 'series' ? 'series' : 'movies';
       if (q) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim()) + '”.</div>'; return; }
       listEl.innerHTML = state.activeTab === 'towatch'
@@ -1200,7 +1334,12 @@
     if (action === 'share') { const movieToShare = state.movies.find(m => m.id === id); if (movieToShare) shareMovie(movieToShare); return; }
     const movie = state.movies.find(m => m.id === id);
     if (!movie) return;
-    if (action === 'watched') movie.status = 'watched';
+    if (action === 'watched') {
+      movie.status = 'watched';
+      // Clear the "new episode" notification once the user has watched it
+      movie.hasUpdate = false;
+      movie.updateDetail = '';
+    }
     if (action === 'towatch') movie.status = 'towatch';
     if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
@@ -1225,14 +1364,62 @@
   document.getElementById('media-filter').addEventListener('click', (e) => {
     const btn = e.target.closest('.filter-btn');
     if (!btn) return;
-    state.mediaFilter = btn.getAttribute('data-filter');
-    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    const filter = btn.getAttribute('data-filter');
+    if (filter === 'has-update') {
+      state.hasUpdateFilter = !state.hasUpdateFilter;
+      btn.classList.toggle('active', state.hasUpdateFilter);
+      // Don't clear Movies/Series selection — has-update is an extra overlay filter
+    } else {
+      state.mediaFilter = filter;
+      state.hasUpdateFilter = false;
+      document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => {
+        if (b.getAttribute('data-filter') === 'has-update') b.classList.remove('active');
+        else b.classList.toggle('active', b === btn);
+      });
+    }
     renderList();
   });
 
   document.getElementById('list-search').addEventListener('input', (e) => {
     state.listSearchQuery = e.target.value;
     renderList();
+  });
+
+  // Theme toggle (light / dark)
+  function applyTheme(theme) {
+    state.theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', state.theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', state.theme === 'light' ? '#F4F1E8' : '#12162A');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = state.theme === 'light' ? '☀️' : '🌙';
+    try { localStorage.setItem(STORAGE_PREFIX + 'theme', state.theme); } catch (e) {}
+  }
+  applyTheme(state.theme);
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    applyTheme(state.theme === 'dark' ? 'light' : 'dark');
+  });
+
+  // Tap an upcoming episode → jump to that series on the list
+  document.getElementById('upcoming-body').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-upcoming-id]');
+    if (!item) return;
+    const id = item.getAttribute('data-upcoming-id');
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return;
+    state.activeTab = m.status === 'watched' ? 'watched' : 'towatch';
+    state.mediaFilter = 'series';
+    state.hasUpdateFilter = false;
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => {
+      const f = b.getAttribute('data-filter');
+      b.classList.toggle('active', f === 'series');
+    });
+    expandedIds.add(id);
+    renderTabs(); renderList();
+    requestAnimationFrame(() => {
+      const el = listEl.querySelector('[data-ticket-id="' + id + '"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   });
 
   // --- Share as image (PNG) --------------------------------------------------
@@ -1290,79 +1477,91 @@
   async function renderListToCanvas(tab, mediaFilter) {
     await ensureFontsReady();
     const items = state.movies.filter(m => m.status === tab && (m.mediaType || 'movie') === mediaFilter);
-    const width = 720, paddingX = 40, maxCards = 12;
-    const shown = items.slice(0, maxCards);
-    const cardHeight = 118;
-    const headerHeight = 108;
-    const footerHeight = 46;
-    const overflowHeight = items.length > maxCards ? 34 : 0;
-    const height = headerHeight + Math.max(shown.length, 1) * cardHeight + overflowHeight + footerHeight;
+    const width = 720, paddingX = 28, maxPosters = 12;
+    const shown = items.slice(0, maxPosters);
+    const cols = 3;
+    const gap = 12;
+    const cellW = Math.floor((width - paddingX * 2 - gap * (cols - 1)) / cols);
+    const cellH = Math.floor(cellW * 1.5);
+    const headerHeight = 100;
+    const footerHeight = 44;
+    const rows = Math.max(1, Math.ceil(shown.length / cols));
+    const gridHeight = rows * cellH + Math.max(0, rows - 1) * gap;
+    const overflowHeight = items.length > maxPosters ? 28 : 0;
+    const height = headerHeight + gridHeight + overflowHeight + footerHeight + 16;
     const canvas = document.createElement('canvas');
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
+    // Always use the dark Marquee brand for share images (readable on any theme)
     ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = '#E8B94D';
     ctx.font = '700 38px "Bebas Neue"';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText('MARQUEE', paddingX, 52);
+    ctx.fillText('MARQUEE', paddingX, 48);
     ctx.fillStyle = '#9AA0BE';
     ctx.font = '400 15px Inter, sans-serif';
     const label = tab === 'watched' ? 'Watched' : 'To Watch';
     const filterLabel = mediaFilter === 'series' ? 'Series' : 'Movies';
-    ctx.fillText('My "' + label + '" list · ' + filterLabel, paddingX, 76);
+    ctx.fillText('My "' + label + '" · ' + filterLabel + ' · ' + items.length + ' title' + (items.length === 1 ? '' : 's'), paddingX, 72);
     ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(paddingX, headerHeight - 14); ctx.lineTo(width - paddingX, headerHeight - 14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(paddingX, headerHeight - 18); ctx.lineTo(width - paddingX, headerHeight - 18); ctx.stroke();
 
     if (!shown.length) {
       ctx.fillStyle = '#9AA0BE';
       ctx.font = '400 16px Inter, sans-serif';
       ctx.fillText('Nothing here yet.', paddingX, headerHeight + 40);
     }
-    let y = headerHeight;
-    shown.forEach(m => {
-      const cardTop = y + 14;
-      ctx.fillStyle = '#F3F1EA';
-      ctx.font = '700 24px "Bebas Neue"';
-      const title = m.title + (m.year ? ' (' + m.year + ')' : '') + (m.mediaType === 'series' ? '  ·  SERIES' : '');
-      let rightEdge = width - paddingX;
-      if (m.imdbRating) {
-        const badgeText = 'IMDb ' + m.imdbRating;
-        ctx.font = '700 13px Inter, sans-serif';
-        const bw = ctx.measureText(badgeText).width + 16;
-        ctx.fillStyle = '#E8B94D';
-        roundRectPath(ctx, width - paddingX - bw, cardTop, bw, 22, 6); ctx.fill();
-        ctx.fillStyle = '#1A1500';
-        ctx.fillText(badgeText, width - paddingX - bw + 8, cardTop + 15);
-        rightEdge = width - paddingX - bw - 12;
+
+    // Load posters in parallel (best-effort; missing posters get a placeholder)
+    const images = await Promise.all(shown.map(async m => {
+      if (!isValidLink(m.posterLink)) return null;
+      try { return await loadImageEl(m.posterLink); } catch (e) { return null; }
+    }));
+
+    shown.forEach((m, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = paddingX + col * (cellW + gap);
+      const y = headerHeight + row * (cellH + gap);
+      // Poster
+      if (images[i]) {
+        ctx.save();
+        roundRectPath(ctx, x, y, cellW, cellH, 8);
+        ctx.clip();
+        ctx.drawImage(images[i], x, y, cellW, cellH);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#1B2038';
+        roundRectPath(ctx, x, y, cellW, cellH, 8); ctx.fill();
+        ctx.fillStyle = '#9AA0BE';
+        ctx.font = '400 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No poster', x + cellW / 2, y + cellH / 2);
+        ctx.textAlign = 'left';
       }
+      // Gradient fade at bottom for title readability
+      const grad = ctx.createLinearGradient(x, y + cellH - 48, x, y + cellH);
+      grad.addColorStop(0, 'rgba(18,22,42,0)');
+      grad.addColorStop(1, 'rgba(18,22,42,0.92)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y + cellH - 48, cellW, 48);
+      // Title
       ctx.fillStyle = '#F3F1EA';
-      ctx.font = '700 24px "Bebas Neue"';
-      ctx.fillText(truncateToWidth(ctx, title, rightEdge - paddingX), paddingX, cardTop + 20);
-
-      const genreText = (m.genres && m.genres.length) ? m.genres.slice(0, 3).join('  •  ') : 'Genre unknown';
-      ctx.fillStyle = '#9AA0BE';
-      ctx.font = '400 14px Inter, sans-serif';
-      ctx.fillText(truncateToWidth(ctx, genreText, width - paddingX * 2), paddingX, cardTop + 46);
-
-      const platformNames = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 3).map(p => p.name).join(', ') : 'No availability found';
-      ctx.fillStyle = '#7FB3D5';
-      ctx.font = '400 13px Inter, sans-serif';
-      ctx.fillText(truncateToWidth(ctx, 'Watch on: ' + platformNames, width - paddingX * 2), paddingX, cardTop + 68);
-
-      const dividerY = y + cardHeight - 6;
-      ctx.strokeStyle = 'rgba(51,57,92,0.6)';
-      ctx.beginPath(); ctx.moveTo(paddingX, dividerY); ctx.lineTo(width - paddingX, dividerY); ctx.stroke();
-      y += cardHeight;
+      ctx.font = '700 13px Inter, sans-serif';
+      const title = truncateToWidth(ctx, m.title + (m.year ? ' (' + m.year + ')' : ''), cellW - 12);
+      ctx.fillText(title, x + 6, y + cellH - 12);
     });
-    if (items.length > maxCards) {
+
+    let footerY = headerHeight + gridHeight + 20;
+    if (items.length > maxPosters) {
       ctx.fillStyle = '#9AA0BE';
-      ctx.font = '400 14px Inter, sans-serif';
-      ctx.fillText('…and ' + (items.length - maxCards) + ' more', paddingX, y + 24);
-      y += overflowHeight;
+      ctx.font = '400 13px Inter, sans-serif';
+      ctx.fillText('…and ' + (items.length - maxPosters) + ' more on Marquee', paddingX, footerY);
+      footerY += overflowHeight;
     }
     ctx.fillStyle = '#9AA0BE';
     ctx.font = '400 12px Inter, sans-serif';
-    ctx.fillText('Shared from Marquee', paddingX, height - 18);
+    ctx.fillText('Shared from Marquee', paddingX, height - 16);
     return canvas;
   }
 
@@ -1640,6 +1839,24 @@
     notifDropdown.style.display = notifDropdown.style.display === 'block' ? 'none' : 'block';
   });
   notifDropdown.addEventListener('click', (e) => {
+    // Clear one notification
+    const clearBtn = e.target.closest('[data-action="clear-notif"]');
+    if (clearBtn) {
+      e.stopPropagation();
+      const id = clearBtn.getAttribute('data-id');
+      const m = state.movies.find(mm => mm.id === id);
+      if (m) { m.hasUpdate = false; m.updateDetail = ''; saveToFirestore(); renderList(); renderNotifications(); }
+      return;
+    }
+    // Clear all notifications
+    const clearAllBtn = e.target.closest('[data-action="clear-all-notifs"]');
+    if (clearAllBtn) {
+      e.stopPropagation();
+      state.movies.forEach(m => { if (m.hasUpdate) { m.hasUpdate = false; m.updateDetail = ''; } });
+      saveToFirestore(); renderList(); renderNotifications();
+      return;
+    }
+    // Tap item → jump to the series on the list
     const item = e.target.closest('.notif-item');
     if (!item) return;
     const id = item.getAttribute('data-id');
@@ -1647,7 +1864,11 @@
     if (!m) return;
     state.activeTab = 'towatch';
     state.mediaFilter = m.mediaType === 'series' ? 'series' : 'movie';
-    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    state.hasUpdateFilter = false;
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => {
+      const f = b.getAttribute('data-filter');
+      b.classList.toggle('active', f === state.mediaFilter);
+    });
     expandedIds.add(id);
     renderTabs(); renderList();
     notifDropdown.style.display = 'none';
