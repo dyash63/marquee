@@ -1,0 +1,1898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Marquee — find it, watch it, track it. Personal movie & series watchlist." />
+  <title>Marquee</title>
+
+  <!-- PWA: manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- PWA: theme color (browser chrome / status bar) -->
+  <meta name="theme-color" content="#12162A" />
+
+  <!-- iOS / Safari standalone app support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Marquee" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+
+  <!-- Icons (Android / desktop / favicon) -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+  :root {
+    --bg: #12162A; --bg-elevated: #1B2038; --card-border: #33395C;
+    --gold: #E8B94D; --gold-dim: rgba(232, 185, 77, 0.14); --red-stamp: #C1443D;
+    --text: #F3F1EA; --text-muted: #9AA0BE;
+    --stream: #E8B94D; --rent: #7FB3D5; --buy: #B7BCD6; --free: #7FC29B;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    min-height: 100%;
+  }
+  #marquee-app {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: calc(28px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    display: flex;
+    justify-content: center;
+  }
+  #marquee-app .wrap { width: 100%; max-width: 440px; position: relative; }
+  .mq-header { text-align: center; margin-bottom: 24px; }
+  .bulbs { display: flex; justify-content: center; gap: 7px; margin-bottom: 10px; }
+  .bulbs span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); opacity: 0.35; animation: twinkle 2.6s ease-in-out infinite; }
+  .bulbs span:nth-child(odd) { animation-delay: 0.3s; }
+  .bulbs span:nth-child(3n) { animation-delay: 0.9s; }
+  .bulbs span:nth-child(4n) { animation-delay: 1.4s; }
+  @keyframes twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+  .mq-logo { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 6px; color: var(--gold); line-height: 1; margin: 0; }
+  .mq-tagline { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
+  .search-row { display: flex; gap: 8px; }
+  .input-wrap { position: relative; flex: 1; }
+  .suggestions-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; z-index: 20; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+  .suggestion-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:active { background: var(--gold-dim); }
+  .suggestion-title { font-size: 14px; }
+  .suggestion-genre { font-size: 10px; color: var(--gold); letter-spacing: 0.3px; text-transform: uppercase; }
+  .suggestion-loading { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+  .genre-tag { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: 0.2px; color: var(--gold); background: rgba(232, 185, 77, 0.12); border: 1px solid var(--gold-dim); border-radius: 20px; padding: 1px 8px; margin: 0 4px 4px 0; }
+  .genre-tag.small { font-size: 9px; padding: 1px 6px; }
+  .genre-line, .t-genres, .s-genres { margin: 2px 0 8px; line-height: 1.6; }
+  .list-search-share-flex { display: flex; gap: 6px; align-items: center; }
+  .list-search-share-flex #list-search { flex: 1; min-width: 0; }
+  .share-btn { min-height: 38px; padding: 0 12px; font-size: 13px; font-weight: 700; flex-shrink: 0; white-space: nowrap; }
+  #movie-input { width: 100%; min-height: 46px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
+  #movie-input:focus, select:focus, .region-custom:focus, #api-key-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  #movie-input::placeholder { color: var(--text-muted); }
+  .find-btn { min-height: 46px; padding: 0 18px; border-radius: 8px; border: none; background: var(--gold); color: #1A1500; font-weight: 700; font-size: 15px; font-family: inherit; cursor: pointer; }
+  .find-btn:disabled { opacity: 0.6; cursor: default; }
+  .region-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text-muted); }
+  .region-row select, .region-custom { background: transparent; border: none; border-bottom: 1px solid var(--card-border); color: var(--text); font-family: inherit; font-size: 16px; padding: 2px 4px; }
+  .settings-row { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+  .settings-toggle { background: none; border: none; color: var(--gold); font-family: inherit; font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
+  .api-key-panel { display: none; margin-top: 8px; padding: 12px; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; }
+  .api-key-panel.open { display: block; }
+  .api-key-panel label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--text-muted); }
+  #api-key-input, #omdb-key-input { width: 100%; min-height: 40px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--card-border); background: var(--bg); color: var(--text); font-size: 16px; font-family: inherit; }
+  .api-key-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .api-key-hint { margin-top: 8px; font-size: 11px; line-height: 1.4; color: var(--text-muted); }
+  .api-key-hint a { color: var(--gold); }
+  #result-area { margin-top: 18px; }
+  .status-line { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 14px; padding: 14px 2px; }
+  .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--card-border); border-top-color: var(--gold); animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-box { border: 1px solid var(--red-stamp); border-radius: 8px; padding: 14px; font-size: 14px; color: var(--text); }
+  .error-box .retry-btn { margin-top: 10px; background: none; border: 1px solid var(--red-stamp); color: var(--text); border-radius: 6px; padding: 7px 12px; font-family: inherit; font-size: 13px; cursor: pointer; }
+  .result-card { border: 1px solid var(--gold); border-radius: 10px; padding: 16px; background: var(--gold-dim); position: relative; }
+  .result-card .dismiss { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; line-height: 1; padding: 4px; }
+  .poster-link { display: inline-block; margin-top: 4px; font-size: 11px; color: var(--gold); text-decoration: underline; }
+  .result-title { font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 1px; margin: 0 0 2px; padding-right: 20px; }
+  .result-year { color: var(--text-muted); font-size: 13px; }
+  .series-tag, .movie-tag, .person-tag { display: inline-block; font-size: 10px; font-family: 'Inter', sans-serif; letter-spacing: 0.5px; padding: 1px 6px; border-radius: 4px; vertical-align: middle; font-weight: 700; }
+  .series-tag { background: var(--gold); color: #16213e; }
+  .movie-tag { background: #4A6FA5; color: #E8EEF8; }
+  .person-tag { background: #6B5B95; color: #F0EBF8; }
+  .result-summary { font-size: 14px; line-height: 1.5; margin: 10px 0 12px; color: var(--text); }
+  .platform-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 20px; border-left: 3px solid; background: rgba(255,255,255,0.05); }
+  .pill.stream { border-color: var(--stream); } .pill.rent { border-color: var(--rent); } .pill.buy { border-color: var(--buy); } .pill.free { border-color: var(--free); }
+  .no-platforms { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+  .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--gold); background: transparent; color: var(--text); }
+  .btn.filled { background: var(--gold); color: #1A1500; border-color: var(--gold); }
+  .tabs { display: flex; margin-top: 26px; border-bottom: 1px solid var(--card-border); }
+  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .media-filter { display: flex; gap: 6px; margin-top: 10px; }
+  .list-search-row { margin-top: 10px; }
+  #list-search { width: 100%; min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
+  #list-search::placeholder { color: var(--text-muted); }
+  #list-search:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .filter-btn { background: var(--bg-elevated); border: 1px solid var(--card-border); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+  .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
+  #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .ticket { position: relative; display: flex; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); overflow: hidden; }
+  .ticket .t-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); margin: 12px 0 12px 12px; }
+  .ticket .stub { width: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--text-muted); border-right: 1px dashed var(--card-border); position: relative; }
+  .ticket .stub::before, .ticket .stub::after { content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg); right: -7px; }
+  .ticket .stub::before { top: -6px; } .ticket .stub::after { bottom: -6px; }
+  .ticket .body { flex: 1; padding: 12px; min-width: 0; }
+  .ticket .t-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.5px; margin: 0 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .ticket .t-title .caret { font-family: 'Inter', sans-serif; color: var(--text-muted); font-size: 12px; }
+  .details-panel { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+  .details-summary { color: var(--text); margin: 0 0 8px; } .details-empty { color: var(--text-muted); margin: 0; }
+  .season-list { margin: 0 0 8px; padding-left: 18px; color: var(--text); } .season-list li { margin-bottom: 2px; }
+  .next-episode { color: var(--gold); font-weight: 600; margin: 0 0 8px; }
+  .details-loading { color: var(--text-muted); }
+  .ticket .t-platforms { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .ticket .t-platforms .pill { font-size: 11px; padding: 2px 8px; }
+  .ticket .t-actions { display: flex; gap: 6px; }
+  .icon-btn { background: none; border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 6px; font-family: inherit; font-size: 12px; padding: 5px 9px; cursor: pointer; }
+  .icon-btn.primary { color: var(--gold); border-color: var(--gold); }
+  .empty-state { text-align: center; color: var(--text-muted); font-size: 14px; padding: 40px 16px; line-height: 1.6; }
+  .banner { font-size: 12px; color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; margin-top: 10px; line-height: 1.5; }
+  .update-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; background: rgba(212, 175, 55, 0.12); border: 1px solid var(--gold); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; font-size: 12px; }
+  .update-banner span { flex: 1 1 100%; font-weight: 600; }
+  .notif-wrap { position: absolute; top: 0; left: 0; }
+  .notif-bell { position: relative; background: none; border: none; font-size: 17px; line-height: 1; cursor: pointer; padding: 4px 6px; color: var(--text); }
+  .notif-count { position: absolute; top: -3px; right: -3px; background: var(--red-stamp); color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; min-width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
+  .notif-dropdown { position: absolute; top: 32px; left: 0; width: 250px; max-height: 320px; overflow-y: auto; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.45); z-index: 30; padding: 6px; }
+  .notif-item { padding: 8px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 2px; }
+  .notif-item:last-child { margin-bottom: 0; }
+  .notif-item:hover, .notif-item:active { background: var(--gold-dim); }
+  .notif-item .notif-title { display: block; font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .notif-item .notif-detail { display: block; font-size: 11px; color: var(--text-muted); }
+  .notif-empty { padding: 14px 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
+  .notif-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 8px; border-bottom: 1px solid var(--card-border); margin-bottom: 4px; }
+  .notif-header-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.3px; text-transform: uppercase; }
+  .notif-clear-all { background: none; border: none; color: var(--gold); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 4px; }
+  .notif-clear-all:hover { text-decoration: underline; }
+  .notif-item { position: relative; padding-right: 28px; }
+  .notif-dismiss { position: absolute; top: 6px; right: 6px; background: none; border: none; color: var(--text-muted); font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+  .notif-dismiss:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+  .ticket.has-update { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
+  .whatsapp-btn { background: #25D366; color: #0b0b0b; border-color: #25D366; text-decoration: none; display: inline-block; }
+  .suggest-panel { margin-top: 14px; border: 1px solid var(--card-border); border-radius: 10px; background: var(--bg-elevated); padding: 12px; }
+  .suggest-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .suggest-title { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.5px; color: var(--gold); }
+  .suggest-count { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted); margin-left: 6px; letter-spacing: 0; }
+  .suggest-header-actions { display: flex; align-items: center; gap: 10px; }
+  .suggest-header .icon-btn { font-size: 11px; padding: 4px 8px; }
+  .suggest-list { display: flex; flex-direction: column; gap: 8px; }
+  .suggest-card { display: flex; gap: 10px; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; background: var(--bg); }
+  .suggest-card .s-poster { width: 46px; height: 66px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
+  .suggest-card .s-body { flex: 1; min-width: 0; }
+  .suggest-card .s-title { font-family: 'Bebas Neue', sans-serif; font-size: 15px; margin: 0 0 2px; letter-spacing: 0.3px; }
+  .suggest-card .s-meta { font-size: 11px; color: var(--text-muted); margin: 0 0 4px; }
+  .suggest-card .s-summary { font-size: 12px; line-height: 1.4; color: var(--text); margin: 0 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .suggest-card .s-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggest-card .s-actions .btn.filled { padding: 6px 10px; font-size: 12px; }
+  .suggest-card .s-actions .icon-btn { font-size: 11px; }
+  .suggest-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; }
+  .suggest-status { font-size: 12px; color: var(--text-muted); text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .imdb-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: #16213e; background: var(--gold); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .choice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .choice-hint { font-size: 12px; color: var(--text-muted); margin: 0 0 2px; }
+  .choice-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 1px solid var(--card-border); border-radius: 8px; background: var(--bg-elevated); padding: 8px; cursor: pointer; font-family: inherit; color: var(--text); }
+  .choice-item:active { background: var(--gold-dim); border-color: var(--gold); }
+  .choice-poster { width: 40px; height: 58px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card-border); }
+  .choice-body { min-width: 0; flex: 1; }
+  .choice-title { display: block; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.3px; }
+  .choice-year { font-family: 'Inter', sans-serif; color: var(--text-muted); font-size: 12px; }
+  .choice-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .choice-cancel { align-self: flex-start; margin-top: 2px; }
+  .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
+  #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  #auth-overlay.hidden { display: none; }
+  .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+  .welcome-card .mq-logo { font-size: 36px; margin-bottom: 4px; color: var(--gold); }
+  .welcome-card h2 { font-size: 18px; font-weight: 600; margin: 12px 0 8px; color: var(--text); }
+  .welcome-card p { font-size: 14px; line-height: 1.55; color: var(--text-muted); margin: 0 0 10px; }
+  .welcome-features { text-align: left; font-size: 13px; color: var(--text); margin: 16px 0 20px; padding: 0 8px; }
+  .welcome-features li { margin-bottom: 6px; }
+  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: none; border-radius: 8px; background: #fff; color: #1f1f1f; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
+  .google-btn svg { width: 18px; height: 18px; }
+  .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
+  .user-bar { position: absolute; top: 2px; right: 0; display: flex; align-items: center; gap: 6px; max-width: 150px; }
+  .user-bar .user-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; color: var(--text-muted); font-size: 11px; }
+  .user-bar .logout-btn { background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 10px; padding: 2px 0; cursor: pointer; text-decoration: underline; flex-shrink: 0; }
+  .user-bar .logout-btn:hover, .user-bar .logout-btn:active { color: var(--gold); }
+  </style>
+</head>
+<body>
+<div id="auth-overlay">
+  <div class="welcome-card">
+    <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="mq-logo">MARQUEE</p>
+    <p class="mq-tagline">Find it, watch it, track it.</p>
+    <h2>Your personal movie & series watchlist</h2>
+    <p>Search titles, see where to stream / rent / buy in your region, keep To-watch & Watched lists, and get notified about new episodes.</p>
+    <ul class="welcome-features">
+      <li>See where to stream, rent, or buy — for your region</li>
+      <li>Personalized “Suggested for you” recommendations</li>
+      <li>Real IMDb ratings on your titles</li>
+      <li>100% free — no credit card ever</li>
+    </ul>
+    <button type="button" class="google-btn" id="google-signin-btn">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <p class="auth-error" id="auth-error" style="display:none;"></p>
+  </div>
+</div>
+<div id="marquee-app" style="display:none;">
+  <div class="wrap">
+    <div class="mq-header">
+      <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <p class="mq-logo">MARQUEE</p>
+      <p class="mq-tagline">Find it, watch it, track it.</p>
+    </div>
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notif-bell" aria-label="Notifications">
+        🔔<span class="notif-count" id="notif-count" style="display:none;">0</span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown" style="display:none;"></div>
+    </div>
+    <div class="user-bar" id="user-bar">
+      <div class="user-info">
+        <span class="user-name" id="user-name">Signed in</span>
+      </div>
+      <button type="button" class="logout-btn" id="logout-btn">Sign out</button>
+    </div>
+    <form id="search-form">
+      <div class="search-row">
+        <div class="input-wrap">
+          <input id="movie-input" type="text" placeholder="Search movie, series, or actor…" autocomplete="off" />
+          <div id="suggestions" class="suggestions-dropdown"></div>
+        </div>
+        <button type="submit" class="find-btn" id="find-btn">Find it</button>
+      </div>
+      <div class="region-row">
+        <span>Availability in</span>
+        <select id="region-select">
+          <option value="IN">India</option>
+          <option value="US">United States</option>
+          <option value="GB">United Kingdom</option>
+          <option value="CA">Canada</option>
+          <option value="AU">Australia</option>
+          <option value="Other">Other…</option>
+        </select>
+        <input id="region-custom" class="region-custom" type="text" placeholder="ISO code e.g. DE" maxlength="2" style="display:none; width:90px;" />
+      </div>
+      <div class="settings-row" id="settings-row" style="display:none;">
+        <button type="button" class="settings-toggle" id="settings-toggle">TMDB API key (free)</button>
+        <div class="api-key-panel" id="api-key-panel">
+          <label for="api-key-input">TMDB API key — free, no credit card</label>
+          <input id="api-key-input" type="password" placeholder="Your TMDB v3 API key" autocomplete="off" />
+          <div class="api-key-actions">
+            <button type="button" class="btn filled" id="save-key-btn" style="padding:6px 12px; font-size:12px;">Save key</button>
+            <button type="button" class="icon-btn" id="clear-key-btn">Clear</button>
+            <span id="key-status" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+          <p class="api-key-hint">
+            1. Create a free account at <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener">themoviedb.org</a><br/>
+            2. Go to <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Settings → API</a> and request a key (choose “Developer”)<br/>
+            3. Paste the <strong>API Key (v3 auth)</strong> here. Stored only in your browser.
+          </p>
+        </div>
+      </div>
+      <div class="settings-row" id="omdb-settings-row" style="display:none;">
+        <button type="button" class="settings-toggle" id="omdb-settings-toggle">IMDb ratings — free OMDb key</button>
+        <div class="api-key-panel" id="omdb-key-panel">
+          <label for="omdb-key-input">OMDb API key — free, shows real IMDb ratings</label>
+          <input id="omdb-key-input" type="password" placeholder="Your OMDb API key" autocomplete="off" />
+          <div class="api-key-actions">
+            <button type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12px; font-size:12px;">Save key</button>
+            <button type="button" class="icon-btn" id="clear-omdb-key-btn">Clear</button>
+            <span id="omdb-key-status" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+          <p class="api-key-hint">
+            1. Request a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com/apikey.aspx</a> (choose the FREE tier)<br/>
+            2. Confirm it via the email OMDb sends you<br/>
+            3. Paste the key here. Stored only in your browser. Used to look up IMDb ratings for titles already found via TMDB.
+          </p>
+        </div>
+      </div>
+    </form>
+    <div id="result-area"></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
+      <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
+      <button class="tab-btn" data-tab="suggested" id="tab-suggested">🎬 Suggested</button>
+    </div>
+    <div class="media-filter" id="media-filter">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="movie">Movies</button>
+      <button class="filter-btn" data-filter="series">Series</button>
+    </div>
+    <div class="list-search-row" id="list-search-row">
+      <div class="list-search-share-flex">
+        <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
+        <button type="button" class="icon-btn share-btn" id="share-list-btn" title="Share this list as an image">📤 Share</button>
+      </div>
+    </div>
+    <div class="suggest-panel" id="suggest-panel" style="display:none;">
+      <div class="suggest-header" id="suggest-toggle">
+        <span class="suggest-title">Suggested for you<span class="suggest-count" id="suggest-count"></span></span>
+        <span class="suggest-header-actions">
+          <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
+        </span>
+      </div>
+      <div id="suggest-body"></div>
+    </div>
+    <div id="storage-banner"></div>
+    <div id="list"></div>
+    <p class="footer-credit">Crafted by DesaiX</p>
+  </div>
+</div>
+<script>
+
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyB1GY5r7fvUBgNcPif_vjULyf1Nz-izErQ",
+    authDomain: "marquee-b5cc8.firebaseapp.com",
+    projectId: "marquee-b5cc8",
+    storageBucket: "marquee-b5cc8.firebasestorage.app",
+    messagingSenderId: "762258886139",
+    appId: "1:762258886139:web:55d2047e4a95707e0e0f5e",
+    measurementId: "G-FKMBBESB3F"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+  const STORAGE_PREFIX = 'marquee_';
+  const TMDB_BASE = 'https://api.themoviedb.org/3';
+  const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+  const TMDB_IMG_THUMB = 'https://image.tmdb.org/t/p/w92';
+  const LANG_NAMES = { en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada',
+    bn: 'Bengali', mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', ur: 'Urdu', ja: 'Japanese', ko: 'Korean',
+    es: 'Spanish', fr: 'French', de: 'German', zh: 'Chinese', ru: 'Russian', it: 'Italian', pt: 'Portuguese',
+    ar: 'Arabic', tr: 'Turkish', th: 'Thai' };
+  function languageName(code) { return (code && LANG_NAMES[code]) || (code ? code.toUpperCase() : ''); }
+  // Shared app-wide keys — every signed-in user rides on these, so nobody
+  // is ever asked to bring their own. The key-entry UI is hidden below.
+  const SHARED_TMDB_KEY = 'e4b02faabb3499e61ae71ba7b320e064';
+  const SHARED_OMDB_KEY = '527fd7fc';
+
+  const state = {
+    user: null, movies: [], region: 'IN', activeTab: 'towatch', mediaFilter: 'all',
+    searchState: 'idle', searchResult: null, searchCandidates: [], errorMsg: '', apiKey: SHARED_TMDB_KEY, apiKeyFromCloud: false, lastQuery: '', saving: false,
+    suggestions: [], suggestState: 'idle', suggestError: '', suggestOpen: false, listSearchQuery: '',
+    omdbKey: SHARED_OMDB_KEY, omdbKeyFromCloud: false,
+    genreMap: { movie: {}, series: {} }
+  };
+  const MIN_LIBRARY_FOR_SUGGESTIONS = 5;
+  const imdbCache = {};
+  const expandedIds = new Set();
+  let saveTimer = null;
+
+  const authOverlay = document.getElementById('auth-overlay');
+  const appRoot = document.getElementById('marquee-app');
+  const googleBtn = document.getElementById('google-signin-btn');
+  const authErrorEl = document.getElementById('auth-error');
+  const userNameEl = document.getElementById('user-name');
+  const logoutBtn = document.getElementById('logout-btn');
+  const resultArea = document.getElementById('result-area');
+  const listEl = document.getElementById('list');
+  const form = document.getElementById('search-form');
+  const input = document.getElementById('movie-input');
+  const regionSelect = document.getElementById('region-select');
+  const regionCustom = document.getElementById('region-custom');
+  const tabToWatch = document.getElementById('tab-towatch');
+  const tabWatched = document.getElementById('tab-watched');
+  const tabSuggested = document.getElementById('tab-suggested');
+  const mediaFilterEl = document.getElementById('media-filter');
+  const listSearchRowEl = document.getElementById('list-search-row');
+  const suggestPanelEl = document.getElementById('suggest-panel');
+  const suggestionsEl = document.getElementById('suggestions');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const apiKeyPanel = document.getElementById('api-key-panel');
+  const keyStatus = document.getElementById('key-status');
+  const omdbKeyInput = document.getElementById('omdb-key-input');
+  const omdbKeyPanel = document.getElementById('omdb-key-panel');
+  const omdbKeyStatus = document.getElementById('omdb-key-status');
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function platformLabel(type) { return { stream: 'Stream', rent: 'Rent', buy: 'Buy', free: 'Free' }[type] || 'Available'; }
+  function isValidLink(url) { return typeof url === 'string' && /^https?:\/\//i.test(url.trim()); }
+  function trySave(key, value) { try { localStorage.setItem(STORAGE_PREFIX + key, value); return true; } catch (e) { return false; } }
+  function tryLoad(key) { try { return localStorage.getItem(STORAGE_PREFIX + key); } catch (e) { return null; } }
+  function showStorageBanner() {
+    const banner = document.getElementById('storage-banner');
+    if (banner) { banner.innerHTML = "Couldn’t save. Use <strong>Export backup</strong>."; banner.classList.add('banner'); }
+  }
+  function clearStorageBanner() {
+    const banner = document.getElementById('storage-banner');
+    if (banner) { banner.innerHTML = ''; banner.classList.remove('banner'); }
+  }
+
+  function showAuthError(msg) { authErrorEl.textContent = msg; authErrorEl.style.display = 'block'; }
+  function clearAuthError() { authErrorEl.textContent = ''; authErrorEl.style.display = 'none'; }
+
+  async function signInWithGoogle() {
+    clearAuthError();
+    googleBtn.disabled = true;
+    googleBtn.textContent = 'Signing in…';
+    try {
+      await auth.signInWithPopup(googleProvider);
+    } catch (err) {
+      console.error(err);
+      let msg = 'Sign-in failed. Please try again.';
+      if (err.code === 'auth/popup-closed-by-user') msg = 'Sign-in cancelled.';
+      else if (err.code === 'auth/popup-blocked') msg = 'Popup blocked — allow popups for this site.';
+      else if (err.message) msg = err.message;
+      showAuthError(msg);
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
+    }
+  }
+
+  async function signOut() { try { await auth.signOut(); } catch (e) { console.error(e); } }
+
+  function updateUserBar() {
+    if (!state.user) return;
+    userNameEl.textContent = state.user.displayName || state.user.email || 'Signed in';
+  }
+
+  function userDocRef() { return state.user ? db.collection('users').doc(state.user.uid) : null; }
+
+  async function loadFromFirestore() {
+    const ref = userDocRef();
+    if (!ref) return;
+    try {
+      const snap = await ref.get();
+      if (snap.exists) {
+        const data = snap.data();
+        if (Array.isArray(data.movies)) state.movies = data.movies;
+        if (data.region) state.region = data.region;
+        if (typeof data.apiKey === 'string' && data.apiKey) {
+          state.apiKey = data.apiKey;
+          state.apiKeyFromCloud = true;
+        }
+        if (typeof data.omdbKey === 'string' && data.omdbKey) {
+          state.omdbKey = data.omdbKey;
+          state.omdbKeyFromCloud = true;
+        }
+      } else {
+        const local = loadMoviesLocal();
+        if (local.length) { state.movies = local; await saveToFirestore(true); }
+      }
+    } catch (e) {
+      console.error(e);
+      state.movies = loadMoviesLocal();
+    }
+  }
+
+  async function saveToFirestore(immediate) {
+    if (!state.user) return;
+    const doSave = async () => {
+      const ref = userDocRef();
+      if (!ref) return;
+      try {
+        await ref.set({ movies: state.movies, region: state.region, apiKey: state.apiKey || '', omdbKey: state.omdbKey || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        trySave('movies', JSON.stringify(state.movies));
+        trySave('region', state.region);
+        saveApiKey(state.apiKey);
+        saveOmdbKey(state.omdbKey);
+        clearStorageBanner();
+      } catch (e) { console.error(e); showStorageBanner(); }
+    };
+    if (immediate) { clearTimeout(saveTimer); await doSave(); }
+    else { clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
+  }
+
+  function loadMoviesLocal() {
+    const raw = tryLoad('movies');
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch (e) { return []; }
+  }
+  function loadRegionLocal() { return tryLoad('region') || 'IN'; }
+  function loadApiKey() { return tryLoad('tmdbKey') || ''; }
+  function loadOmdbKey() { return tryLoad('omdbKey') || ''; }
+  function saveOmdbKey(key) {
+    if (key) trySave('omdbKey', key);
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'omdbKey'); } catch (e) {}
+  }
+  function loadDismissedSuggestions() {
+    try { return new Set(JSON.parse(tryLoad('dismissedSuggestions') || '[]')); } catch (e) { return new Set(); }
+  }
+  function saveDismissedSuggestions(set) { trySave('dismissedSuggestions', JSON.stringify(Array.from(set))); }
+  function saveApiKey(key) {
+    if (key) trySave('tmdbKey', key);
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'tmdbKey'); } catch (e) {}
+  }
+
+  function applyRegionToControls() {
+    const known = ['IN','US','GB','CA','AU'];
+    if (known.includes(state.region)) { regionSelect.value = state.region; regionCustom.style.display = 'none'; }
+    else { regionSelect.value = 'Other'; regionCustom.style.display = 'inline-block'; regionCustom.value = state.region; }
+  }
+  function updateKeyStatus() {
+    if (state.apiKey) { keyStatus.textContent = 'Key saved ✓'; keyStatus.style.color = 'var(--free)'; }
+    else { keyStatus.textContent = 'No key set'; keyStatus.style.color = 'var(--text-muted)'; }
+    const settingsRow = document.getElementById('settings-row');
+    if (settingsRow) settingsRow.style.display = state.apiKey ? 'none' : '';
+  }
+  function updateOmdbKeyStatus() {
+    if (state.omdbKey) { omdbKeyStatus.textContent = 'Key saved ✓'; omdbKeyStatus.style.color = 'var(--free)'; }
+    else { omdbKeyStatus.textContent = 'No key set'; omdbKeyStatus.style.color = 'var(--text-muted)'; }
+    const omdbRow = document.getElementById('omdb-settings-row');
+    if (omdbRow) omdbRow.style.display = state.omdbKey ? 'none' : '';
+  }
+
+  function requireApiKey() {
+    if (!state.apiKey || !state.apiKey.trim()) throw Object.assign(new Error('API key required'), { needsKey: true });
+  }
+  async function tmdbGet(path, params) {
+    requireApiKey();
+    const url = new URL(TMDB_BASE + path);
+    url.searchParams.set('api_key', state.apiKey.trim());
+    if (params) Object.keys(params).forEach(k => { if (params[k] != null) url.searchParams.set(k, params[k]); });
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).status_message || ''; } catch (e) {}
+      const err = new Error('HTTP ' + response.status + (detail ? ': ' + detail : ''));
+      err.status = response.status; throw err;
+    }
+    return response.json();
+  }
+  function yearFromDate(d) { return (d && typeof d === 'string') ? d.slice(0, 4) : ''; }
+  function formatDMY(d) {
+    if (!d || typeof d !== 'string') return '';
+    const parts = d.slice(0, 10).split('-');
+    if (parts.length !== 3) return d;
+    const [y, m, day] = parts;
+    return day + '-' + m + '-' + y;
+  }
+  function mapProviders(regionData) {
+    if (!regionData) return [];
+    const out = [], seen = new Set();
+    function add(list, type) {
+      (list || []).forEach(p => {
+        const key = p.provider_name + type;
+        if (seen.has(key)) return; seen.add(key);
+        out.push({ name: p.provider_name, type });
+      });
+    }
+    add(regionData.flatrate, 'stream'); add(regionData.ads, 'free'); add(regionData.free, 'free');
+    add(regionData.rent, 'rent'); add(regionData.buy, 'buy');
+    return out;
+  }
+
+  // --- Genre lookup ----------------------------------------------------------
+  // TMDB's search/multi and recommendations endpoints only return genre_ids,
+  // not names, so we fetch the movie + TV genre dictionaries once and cache
+  // them for the whole session, then resolve ids -> names anywhere we need to
+  // show a genre tag (autocomplete, disambiguation list, watchlist tickets,
+  // suggestion cards).
+  let genreMapsLoaded = false, genreMapsLoading = null;
+  function ensureGenreMaps() {
+    if (genreMapsLoaded) return Promise.resolve();
+    if (genreMapsLoading) return genreMapsLoading;
+    genreMapsLoading = (async () => {
+      try {
+        const [movieG, tvG] = await Promise.all([
+          tmdbGet('/genre/movie/list', { language: 'en-US' }),
+          tmdbGet('/genre/tv/list', { language: 'en-US' })
+        ]);
+        (movieG.genres || []).forEach(g => { state.genreMap.movie[g.id] = g.name; });
+        (tvG.genres || []).forEach(g => { state.genreMap.series[g.id] = g.name; });
+        genreMapsLoaded = true;
+      } catch (e) { /* leave maps empty — genre tags just won't show until it succeeds later */ }
+    })();
+    return genreMapsLoading;
+  }
+  function genreNamesFromIds(ids, mediaType) {
+    const map = mediaType === 'series' ? state.genreMap.series : state.genreMap.movie;
+    return (ids || []).map(id => map[id]).filter(Boolean);
+  }
+  function genreTagsHtml(genres, extraClass) {
+    if (!genres || !genres.length) return '';
+    return genres.map(g => '<span class="genre-tag' + (extraClass ? ' ' + extraClass : '') + '">' + escapeHtml(g) + '</span>').join('');
+  }
+
+  // --- IMDb ratings (via OMDb) ----------------------------------------------
+  // TMDB doesn't expose real IMDb scores, so when an OMDb key is set we look
+  // up each title's IMDb id through TMDB (free, already-available data), then
+  // ask OMDb for the actual IMDb rating. Results are cached in-memory per
+  // tmdbId so a title is never looked up twice in one session.
+  async function omdbGetRating(imdbId) {
+    if (!state.omdbKey || !imdbId) return null;
+    try {
+      const url = new URL('https://www.omdbapi.com/');
+      url.searchParams.set('apikey', state.omdbKey.trim());
+      url.searchParams.set('i', imdbId);
+      const res = await fetch(url.toString());
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.Response === 'True' && data.imdbRating && data.imdbRating !== 'N/A') return data.imdbRating;
+      return null;
+    } catch (e) { return null; }
+  }
+  async function getImdbRating(mediaType, tmdbId) {
+    if (!state.omdbKey || !tmdbId) return null;
+    const key = mediaType + ':' + tmdbId;
+    if (Object.prototype.hasOwnProperty.call(imdbCache, key)) return imdbCache[key];
+    try {
+      let imdbId = null;
+      if (mediaType === 'series') {
+        const ext = await tmdbGet('/tv/' + tmdbId + '/external_ids');
+        imdbId = ext.imdb_id || null;
+      } else {
+        const det = await tmdbGet('/movie/' + tmdbId, { language: 'en-US' });
+        imdbId = det.imdb_id || null;
+      }
+      const rating = imdbId ? await omdbGetRating(imdbId) : null;
+      imdbCache[key] = rating;
+      return rating;
+    } catch (e) { imdbCache[key] = null; return null; }
+  }
+  function imdbBadgeHtml(rating) {
+    return rating ? '<span class="imdb-badge">IMDb ' + escapeHtml(rating) + '</span>' : '';
+  }
+  let imdbBackfillRunning = false;
+  async function backfillImdbRatings() {
+    if (!state.omdbKey || imdbBackfillRunning) return;
+    // Treat both "never checked" (undefined) and "checked, came up empty"
+    // (null, saved by an older build before this was fixed) as retry
+    // candidates — a null here doesn't mean the title will never be rated,
+    // it just meant the last attempt failed or found nothing at the time.
+    const candidates = state.movies.filter(m => m.tmdbId && (m.imdbRating === undefined || m.imdbRating === null));
+    if (!candidates.length) return;
+    imdbBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          const rating = await getImdbRating(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId);
+          // Only persist an actual rating. Leaving it undefined on a miss (rate limit,
+          // network hiccup, or a title that just isn't rated yet) means it gets
+          // retried on a future backfill instead of being permanently blank.
+          if (rating) m.imdbRating = rating;
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { imdbBackfillRunning = false; }
+  }
+  let genreBackfillRunning = false;
+  async function backfillGenres() {
+    if (!state.apiKey || genreBackfillRunning) return;
+    // Titles added before genre tags existed (or added via an older build)
+    // never got a `genres` array saved on them — fetch it once per title here
+    // so everything already in the library catches up, not just new adds.
+    const candidates = state.movies.filter(m => m.tmdbId && (!m.genres || !m.genres.length));
+    if (!candidates.length) return;
+    genreBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          try {
+            const detailPath = m.mediaType === 'series' ? '/tv/' + m.tmdbId : '/movie/' + m.tmdbId;
+            const detail = await tmdbGet(detailPath, { language: 'en-US' });
+            const genres = (detail.genres || []).map(g => g.name).filter(Boolean);
+            if (genres.length) m.genres = genres;
+          } catch (e) { /* skip — will retry on a future backfill */ }
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { genreBackfillRunning = false; }
+  }
+  async function attachImdbRatingsToSuggestions() {
+    if (!state.omdbKey || !state.suggestions.length) return;
+    await Promise.all(state.suggestions.map(async (s) => {
+      s.imdbRating = await getImdbRating(s.mediaType, s.tmdbId);
+    }));
+    renderSuggestPanel();
+  }
+
+  // --- "Suggested for you" recommendation engine ---------------------------
+  // Built from titles already in the library (both To watch and Watched):
+  // for each library title we pull TMDB's own "recommendations" for it, then
+  // rank the combined results by how often + how prominently each candidate
+  // showed up across those calls, dropping anything already in the library or
+  // previously dismissed. Needs at least MIN_LIBRARY_FOR_SUGGESTIONS titles
+  // added before it will suggest anything.
+
+  function suggestionKey(mediaType, tmdbId) { return mediaType + ':' + tmdbId; }
+
+  function maybeAutoSuggest() {
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+      generateSuggestions();
+    } else {
+      renderSuggestPanel();
+    }
+  }
+
+  async function generateSuggestions() {
+    const library = state.movies.filter(m => m.tmdbId);
+    if (!state.apiKey || library.length < MIN_LIBRARY_FOR_SUGGESTIONS) { renderSuggestPanel(); return; }
+    state.suggestState = 'loading'; state.suggestError = '';
+    renderSuggestPanel();
+    try {
+      await ensureGenreMaps();
+      const inLibrary = new Set(library.map(m => suggestionKey(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId)));
+      const dismissed = loadDismissedSuggestions();
+      // Cap how many library titles we fan out from, newest-added first, to keep this to a reasonable number of API calls.
+      const sources = library.slice(0, 8);
+      const scoreMap = new Map();
+      await Promise.all(sources.map(async (m) => {
+        const kind = m.mediaType === 'series' ? 'tv' : 'movie';
+        try {
+          const res = await tmdbGet('/' + kind + '/' + m.tmdbId + '/recommendations', { language: 'en-US', page: 1 });
+          (res.results || []).forEach((r, idx) => {
+            const mediaType = kind === 'tv' ? 'series' : 'movie';
+            const key = suggestionKey(mediaType, r.id);
+            if (inLibrary.has(key) || dismissed.has(key)) return;
+            const title = mediaType === 'series' ? (r.name || '') : (r.title || '');
+            if (!title) return;
+            const weight = 1 - idx * 0.03;
+            const existing = scoreMap.get(key);
+            if (existing) existing.score += weight;
+            else scoreMap.set(key, {
+              score: weight,
+              data: {
+                tmdbId: r.id, mediaType, title,
+                year: yearFromDate(mediaType === 'series' ? r.first_air_date : r.release_date),
+                summary: (r.overview || '').trim(),
+                posterLink: r.poster_path ? TMDB_IMG + r.poster_path : '',
+                popularity: r.popularity || 0,
+                genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 3)
+              }
+            });
+          });
+        } catch (e) { /* skip titles TMDB can't give recommendations for */ }
+      }));
+      state.suggestions = Array.from(scoreMap.values())
+        .sort((a, b) => (b.score - a.score) || (b.data.popularity - a.data.popularity))
+        .slice(0, 6)
+        .map(x => x.data);
+      state.suggestState = 'ready';
+      if (state.omdbKey) attachImdbRatingsToSuggestions();
+    } catch (e) {
+      console.error(e);
+      state.suggestState = 'error';
+      state.suggestError = friendlySearchError(e);
+    }
+    renderSuggestPanel();
+  }
+
+  function dismissSuggestion(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    state.suggestions.splice(idx, 1);
+    const dismissed = loadDismissedSuggestions();
+    dismissed.add(key);
+    saveDismissedSuggestions(dismissed);
+    renderSuggestPanel();
+  }
+
+  async function addSuggestionToWatchlist(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    const s = state.suggestions[idx];
+    const addBtn = document.querySelector('#suggest-body [data-add="' + key + '"]');
+    if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+    let platforms = [];
+    try {
+      const kind = s.mediaType === 'series' ? 'tv' : 'movie';
+      const providers = await tmdbGet('/' + kind + '/' + s.tmdbId + '/watch/providers');
+      platforms = mapProviders(providers.results && providers.results[state.region]);
+    } catch (e) { /* leave platforms empty if lookup fails */ }
+    const finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    state.movies.unshift({
+      id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
+      mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
+      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
+      imdbRating: s.imdbRating || undefined, genres: s.genres || []
+    });
+    state.suggestions.splice(idx, 1);
+    saveToFirestore();
+    // Added quietly to To watch — deliberately doesn't touch state.activeTab/mediaFilter
+    // or scroll anywhere, so whatever the person is looking at stays put.
+    renderTabs(); renderList(); renderSuggestPanel();
+    if (s.mediaType === 'series') establishSeriesBaseline(finalId);
+  }
+
+  function renderSuggestPanel() {
+    const panel = document.getElementById('suggest-panel');
+    const body = document.getElementById('suggest-body');
+    const countEl = document.getElementById('suggest-count');
+    if (!panel || !body) return;
+    if (state.activeTab !== 'suggested') return;
+    panel.style.display = 'block';
+    countEl.textContent = state.suggestions.length ? ' (' + state.suggestions.length + ')' : '';
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (!state.apiKey) {
+      body.innerHTML = '<div class="suggest-empty">Add a TMDB API key above to get personalized suggestions.</div>';
+      return;
+    }
+    if (libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) {
+      const remaining = MIN_LIBRARY_FOR_SUGGESTIONS - libraryCount;
+      body.innerHTML = '<div class="suggest-empty">Add ' + remaining + ' more title' + (remaining === 1 ? '' : 's') + ' to To watch or Watched to unlock suggestions.</div>';
+      return;
+    }
+    if (state.suggestState === 'loading') {
+      body.innerHTML = '<div class="suggest-status"><div class="spinner"></div><span>Finding what to watch next…</span></div>';
+      return;
+    }
+    if (state.suggestState === 'error') {
+      body.innerHTML = '<div class="suggest-status">' + escapeHtml(state.suggestError || 'Could not load suggestions.') + '</div>';
+      return;
+    }
+    if (!state.suggestions.length) {
+      body.innerHTML = '<div class="suggest-empty">No fresh suggestions right now — hit refresh to try again.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="suggest-list">' + state.suggestions.map(s => {
+      const key = suggestionKey(s.mediaType, s.tmdbId);
+      const img = isValidLink(s.posterLink) ? '<img class="s-poster" src="' + escapeHtml(s.posterLink) + '" alt="" />' : '<div class="s-poster"></div>';
+      return '<div class="suggest-card">' + img +
+        '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + typeTagHtml(s.mediaType) + imdbBadgeHtml(s.imdbRating) + '</p>' +
+        '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
+        (s.genres && s.genres.length ? '<p class="s-genres">' + genreTagsHtml(s.genres, 'small') + '</p>' : '') +
+        '<p class="s-summary">' + escapeHtml(s.summary || 'No summary available.') + '</p>' +
+        '<div class="s-actions"><button class="btn filled" data-add="' + key + '">Add to watchlist</button><button class="icon-btn" data-dismiss="' + key + '">Not interested</button></div>' +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  // Returns TMDB's raw candidate matches for a query — title, year, media type,
+  // and original language for each, so the caller can show them for disambiguation
+  // rather than silently guessing at the top hit (which is often wrong for
+  // misspellings, or ambiguous for common titles that exist in several
+  // languages/years).
+  async function fetchSearchCandidatesRaw(query) {
+    const multi = await tmdbGet('/search/multi', { query, include_adult: 'false', language: 'en-US', page: 1 });
+    return (multi.results || [])
+      .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person')
+      .map(r => {
+        if (r.media_type === 'person') {
+          return {
+            tmdbId: r.id,
+            mediaType: 'person',
+            title: r.name || '',
+            year: '',
+            language: '',
+            posterPath: r.profile_path || '',
+            genreIds: [],
+            knownFor: r.known_for_department || 'Acting'
+          };
+        }
+        return {
+          tmdbId: r.id,
+          mediaType: r.media_type === 'tv' ? 'series' : 'movie',
+          title: r.media_type === 'tv' ? (r.name || '') : (r.title || ''),
+          year: yearFromDate(r.media_type === 'tv' ? r.first_air_date : r.release_date),
+          language: r.original_language || '',
+          posterPath: r.poster_path || '',
+          genreIds: r.genre_ids || []
+        };
+      })
+      .filter(c => c.title)
+      .slice(0, 10);
+  }
+
+  // TMDB's search is closer to prefix/substring matching than true fuzzy
+  // spelling correction — a single missing/extra letter anywhere in the query
+  // (e.g. "kaalakandi" for "Kaalakaandi") can return zero results even though
+  // a human would recognize it instantly. If the exact query comes up empty,
+  // retry against shorter prefixes of it: the part of the query typed
+  // correctly before the typo usually still lines up with the real title.
+  async function fetchSearchCandidates(title) {
+    const trimmed = title.trim();
+    let candidates = await fetchSearchCandidatesRaw(trimmed);
+    if (!candidates.length) {
+      const tried = new Set([trimmed.toLowerCase()]);
+      for (let len = trimmed.length - 1; len >= 4 && len >= trimmed.length - 3; len--) {
+        const prefix = trimmed.slice(0, len);
+        const key = prefix.toLowerCase();
+        if (tried.has(key)) continue;
+        tried.add(key);
+        candidates = await fetchSearchCandidatesRaw(prefix);
+        if (candidates.length) break;
+      }
+    }
+    return candidates;
+  }
+
+  // Fetches full detail + region availability for one chosen candidate.
+  async function buildResultFromCandidate(cand, regionCode) {
+    const detailPath = cand.mediaType === 'series' ? '/tv/' + cand.tmdbId : '/movie/' + cand.tmdbId;
+    const detail = await tmdbGet(detailPath, { language: 'en-US' });
+    let platforms = [];
+    try {
+      const providers = await tmdbGet(detailPath + '/watch/providers');
+      platforms = mapProviders(providers.results && providers.results[regionCode]);
+    } catch (e) {}
+    const year = cand.mediaType === 'series' ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
+    const posterPath = detail.poster_path || cand.posterPath;
+    return {
+      title: cand.mediaType === 'series' ? (detail.name || cand.title) : (detail.title || cand.title),
+      year, mediaType: cand.mediaType,
+      summary: (detail.overview || '').trim() || 'No summary available.',
+      posterLink: posterPath ? TMDB_IMG + posterPath : '',
+      platforms, tmdbId: cand.tmdbId,
+      genres: (detail.genres || []).map(g => g.name).filter(Boolean)
+    };
+  }
+
+  function friendlySearchError(err) {
+    if (err && err.needsKey) return "Add a free TMDB API key in the settings above to search.";
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return "You look offline — check your connection and try again.";
+    if (err && err.status === 401) return "API key looks invalid. Use the v3 API Key (not the Read Access Token).";
+    if (err && err.status === 429) return "Too many requests — wait a few seconds and try again.";
+    if (err && err.status >= 500) return "TMDB is having a moment — try again shortly.";
+    return "Couldn't reach the box office. Check your connection and try again.";
+  }
+
+  async function getSeasonDetails(movie) {
+    if (!movie.tmdbId) return null;
+    try {
+      const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
+      const seasons = (detail.seasons || []).filter(s => s.season_number > 0).map(s => ({ season: s.season_number, episodes: s.episode_count || 0 }));
+      let nextEpisode = 'No new season announced yet';
+      if (detail.next_episode_to_air) {
+        const n = detail.next_episode_to_air;
+        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number + (n.air_date ? ' · ' + formatDMY(n.air_date) : '');
+      } else if (detail.status === 'Ended' || detail.status === 'Canceled') nextEpisode = 'Series ended';
+      else if (detail.last_episode_to_air) {
+        const l = detail.last_episode_to_air;
+        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number + (l.air_date ? ' (' + formatDMY(l.air_date) + ')' : '');
+      }
+      return { seasons, nextEpisode };
+    } catch (e) { return null; }
+  }
+
+  async function checkOneSeriesLatest(movie) {
+    if (!movie.tmdbId) return null;
+    try {
+      const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
+      const last = detail.last_episode_to_air, next = detail.next_episode_to_air;
+      const latestKnown = last ? ('Season ' + last.season_number + (last.episode_number ? ', Ep ' + last.episode_number : '')) : (detail.number_of_seasons ? ('Season ' + detail.number_of_seasons) : '');
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let newRelease = false, releaseDetail = '';
+      if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + last.season_number + 'E' + last.episode_number; }
+      if (next && next.air_date && (next.air_date === todayStr || next.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + next.season_number + 'E' + next.episode_number; }
+      return { newRelease, releaseDetail, latestKnown };
+    } catch (e) { return null; }
+  }
+
+  async function establishSeriesBaseline(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie || movie.mediaType !== 'series' || movie.latestKnown || !movie.tmdbId || !state.apiKey) return;
+    const res = await checkOneSeriesLatest(movie);
+    const m2 = state.movies.find(mm => mm.id === id);
+    if (!m2 || !res) return;
+    if (res.latestKnown) m2.latestKnown = res.latestKnown;
+    if (res.newRelease) {
+      const wasWatched = m2.status === 'watched';
+      m2.hasUpdate = true;
+      m2.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+      if (wasWatched) m2.status = 'towatch';
+    }
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
+  }
+
+  function renderNotifications() {
+    const countEl = document.getElementById('notif-count');
+    const dropdown = document.getElementById('notif-dropdown');
+    if (!countEl || !dropdown) return;
+    const updated = state.movies.filter(m => m.hasUpdate);
+    if (updated.length) { countEl.textContent = String(updated.length); countEl.style.display = 'flex'; }
+    else { countEl.style.display = 'none'; }
+    if (!updated.length) {
+      dropdown.innerHTML = '<div class="notif-empty">No new episodes or seasons yet.</div>';
+      return;
+    }
+    dropdown.innerHTML =
+      '<div class="notif-header"><span class="notif-header-label">' + updated.length + ' update' + (updated.length === 1 ? '' : 's') + '</span>' +
+        '<button type="button" class="notif-clear-all" id="notif-clear-all">Clear all</button></div>' +
+      updated.map(m => '<div class="notif-item" data-id="' + m.id + '">' +
+          '<span class="notif-title">🆕 ' + escapeHtml(m.title) + '</span>' +
+          '<span class="notif-detail">' + escapeHtml(m.updateDetail || m.latestKnown || 'New episode/season') + '</span>' +
+          '<button type="button" class="notif-dismiss" data-dismiss-id="' + m.id + '" aria-label="Dismiss">×</button>' +
+          '</div>').join('');
+  }
+
+  function clearNotification(id) {
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return false;
+    m.hasUpdate = false;
+    m.updateDetail = '';
+    return true;
+  }
+  function clearAllNotifications() {
+    let any = false;
+    state.movies.forEach(m => {
+      if (m.hasUpdate) { m.hasUpdate = false; m.updateDetail = ''; any = true; }
+    });
+    return any;
+  }
+
+  async function checkAllSeriesUpdates() {
+    if (!state.apiKey) return;
+    const seriesList = state.movies.filter(m => m.mediaType === 'series' && m.tmdbId);
+    if (!seriesList.length) { renderNotifications(); return; }
+    const results = await Promise.all(seriesList.map(m => checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))));
+    let any = false;
+    results.forEach(({ id, res }) => {
+      if (!res) return;
+      const movie = state.movies.find(m => m.id === id);
+      if (!movie) return;
+      if (res.latestKnown) movie.latestKnown = res.latestKnown;
+      if (res.newRelease) {
+        const wasWatched = movie.status === 'watched';
+        movie.hasUpdate = true;
+        movie.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+        if (wasWatched) movie.status = 'towatch';
+        any = true;
+      }
+    });
+    if (any) { saveToFirestore(); renderTabs(); renderList(); }
+    renderNotifications();
+  }
+
+  async function fetchSeasonDetails(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie) return;
+    movie.seasonDetailsLoading = true; renderList();
+    const result = await getSeasonDetails(movie);
+    const m2 = state.movies.find(mm => mm.id === id);
+    if (!m2) return;
+    m2.seasonDetailsLoading = false;
+    if (result) { m2.seasonDetails = result; saveToFirestore(); }
+    renderList();
+  }
+
+  function toggleDetails(id) {
+    if (expandedIds.has(id)) { expandedIds.delete(id); renderList(); return; }
+    expandedIds.add(id); renderList();
+    const movie = state.movies.find(m => m.id === id);
+    if (movie && movie.mediaType === 'series' && !movie.seasonDetails && !movie.seasonDetailsLoading && state.apiKey && movie.tmdbId) fetchSeasonDetails(id);
+  }
+
+  function renderResult() {
+    if (state.searchState === 'idle') { resultArea.innerHTML = ''; return; }
+    if (state.searchState === 'loading') {
+      resultArea.innerHTML = '<div class="status-line"><div class="spinner"></div><span>Checking showtimes…</span></div>';
+      return;
+    }
+    if (state.searchState === 'error') {
+      resultArea.innerHTML = '<div class="error-box">' + escapeHtml(state.errorMsg) + '<div><button class="retry-btn" id="retry-btn">Try again</button></div></div>';
+      document.getElementById('retry-btn').addEventListener('click', () => doSearch(state.lastQuery));
+      return;
+    }
+    if (state.searchState === 'choices') {
+      const fromPerson = state.personSearchName;
+      const items = state.searchCandidates.map((c, i) => {
+        const isPerson = c.mediaType === 'person';
+        const imgBase = isPerson ? TMDB_IMG_THUMB : TMDB_IMG_THUMB;
+        const posterHtml = c.posterPath
+          ? '<img class="choice-poster" src="' + imgBase + c.posterPath + '" alt="" />'
+          : '<div class="choice-poster"></div>';
+        let metaParts;
+        if (isPerson) {
+          metaParts = ['Actor / actress'];
+          if (c.knownFor) metaParts.push(c.knownFor);
+        } else {
+          metaParts = [c.mediaType === 'series' ? 'Series' : 'Movie'];
+          const lang = languageName(c.language);
+          if (lang) metaParts.push(lang);
+          if (c.character) metaParts.push('as ' + c.character);
+          else {
+            const genreNames = genreNamesFromIds(c.genreIds, c.mediaType).slice(0, 2);
+            if (genreNames.length) metaParts.push(genreNames.join('/'));
+          }
+        }
+        return '<button type="button" class="choice-item" data-idx="' + i + '">' + posterHtml +
+          '<span class="choice-body"><span class="choice-title">' + escapeHtml(c.title) +
+          (c.year ? ' <span class="choice-year">(' + escapeHtml(c.year) + ')</span>' : '') +
+          (isPerson ? ' <span class="person-tag">ACTOR</span>' : typeTagHtml(c.mediaType)) +
+          '</span>' +
+          '<span class="choice-meta">' + escapeHtml(metaParts.join(' · ')) + '</span></span></button>';
+      }).join('');
+      const hint = fromPerson
+        ? 'Filmography of ' + escapeHtml(fromPerson) + ' — pick a title'
+        : 'Multiple matches — which one?';
+      resultArea.innerHTML = '<div class="choice-list"><p class="choice-hint">' + hint + '</p>' + items +
+        '<button type="button" class="btn choice-cancel" id="choice-cancel">Cancel</button></div>';
+      resultArea.querySelectorAll('.choice-item').forEach(btn => {
+        btn.addEventListener('click', () => chooseSearchCandidate(Number(btn.getAttribute('data-idx'))));
+      });
+      document.getElementById('choice-cancel').addEventListener('click', () => { state.searchState = 'idle'; state.searchCandidates = []; state.personSearchName = ''; renderResult(); });
+      return;
+    }
+    if (state.searchState === 'result') {
+      const r = state.searchResult;
+      const pillsHtml = (r.platforms && r.platforms.length)
+        ? '<div class="platform-pills">' + r.platforms.map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + ' · ' + platformLabel(p.type) + '</span>').join('') + '</div>'
+        : '<div class="no-platforms">No streaming, rental, or purchase options found for this region.</div>';
+      const posterLinkHtml = isValidLink(r.posterLink) ? '<a class="poster-link" href="' + escapeHtml(r.posterLink) + '" target="_blank" rel="noopener">View poster ↗</a>' : '';
+      const resultGenresHtml = (r.genres && r.genres.length) ? '<p class="genre-line">' + genreTagsHtml(r.genres) + '</p>' : '';
+      resultArea.innerHTML =
+        '<div class="result-card"><button class="dismiss" id="dismiss-btn" aria-label="Dismiss">✕</button>' +
+        '<p class="result-title">' + escapeHtml(r.title) + (r.year ? ' <span class="result-year">(' + escapeHtml(r.year) + ')</span>' : '') + typeTagHtml(r.mediaType) + '</p>' +
+        resultGenresHtml +
+        posterLinkHtml + '<p class="result-summary">' + escapeHtml(r.summary || '') + '</p>' + pillsHtml +
+        '<div class="result-actions"><button class="btn filled" id="add-towatch">Add to watchlist</button><button class="btn" id="add-watched">Mark as watched</button></div></div>';
+      document.getElementById('dismiss-btn').addEventListener('click', () => { state.searchState = 'idle'; state.searchResult = null; renderResult(); });
+      document.getElementById('add-towatch').addEventListener('click', () => addResultToList('towatch'));
+      document.getElementById('add-watched').addEventListener('click', () => addResultToList('watched'));
+    }
+  }
+
+  function addResultToList(status) {
+    const r = state.searchResult;
+    const existingIdx = state.movies.findIndex(m => m.title.toLowerCase() === r.title.toLowerCase() && m.year === r.year);
+    let finalId, needsBaseline = false;
+    if (existingIdx !== -1) {
+      const m = state.movies[existingIdx];
+      m.status = status; m.platforms = r.platforms || []; m.summary = r.summary || ''; m.posterLink = r.posterLink || '';
+      m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId; m.genres = r.genres || m.genres || [];
+      finalId = m.id; needsBaseline = m.mediaType === 'series' && !m.latestKnown;
+    } else {
+      finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      needsBaseline = (r.mediaType || 'movie') === 'series';
+      state.movies.unshift({
+        id: finalId, title: r.title, year: r.year || '', summary: r.summary || '', posterLink: r.posterLink || '',
+        mediaType: r.mediaType || 'movie', tmdbId: r.tmdbId || null, latestKnown: '', hasUpdate: false,
+        platforms: r.platforms || [], status, addedAt: new Date().toISOString(), genres: r.genres || []
+      });
+    }
+    saveToFirestore();
+    state.searchState = 'idle'; state.searchResult = null; input.value = '';
+    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings(); backfillGenres();
+    if (needsBaseline) establishSeriesBaseline(finalId);
+  }
+
+  function renderTabs() {
+    tabToWatch.textContent = 'To watch (' + state.movies.filter(m => m.status === 'towatch').length + ')';
+    tabWatched.textContent = 'Watched (' + state.movies.filter(m => m.status === 'watched').length + ')';
+    tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
+    tabWatched.classList.toggle('active', state.activeTab === 'watched');
+    tabSuggested.classList.toggle('active', state.activeTab === 'suggested');
+    const isSuggested = state.activeTab === 'suggested';
+    mediaFilterEl.style.display = isSuggested ? 'none' : 'flex';
+    listSearchRowEl.style.display = isSuggested ? 'none' : 'block';
+    listEl.style.display = isSuggested ? 'none' : 'flex';
+    suggestPanelEl.style.display = isSuggested ? 'block' : 'none';
+    if (isSuggested) {
+      const libraryCount = state.movies.filter(m => m.tmdbId).length;
+      if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+        generateSuggestions();
+      } else {
+        renderSuggestPanel();
+      }
+    }
+  }
+
+  function matchesMediaFilter(m) {
+    if (state.mediaFilter === 'all') return true;
+    return (m.mediaType || 'movie') === state.mediaFilter;
+  }
+  function typeTagHtml(mediaType) {
+    return mediaType === 'series'
+      ? ' <span class="series-tag">SERIES</span>'
+      : ' <span class="movie-tag">MOVIE</span>';
+  }
+
+  function renderList() {
+    const q = state.listSearchQuery.trim().toLowerCase();
+    const items = state.movies.filter(m => m.status === state.activeTab && matchesMediaFilter(m)
+      && (!q || m.title.toLowerCase().includes(q)));
+    if (!items.length) {
+      const filterWord = state.mediaFilter === 'series' ? 'series' : (state.mediaFilter === 'movie' ? 'movies' : 'titles');
+      if (q) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim()) + '”.</div>'; return; }
+      listEl.innerHTML = state.activeTab === 'towatch'
+        ? '<div class="empty-state">Your marquee is empty.<br/>Search above to add ' + filterWord + '.</div>'
+        : '<div class="empty-state">Nothing watched yet.<br/>Once you finish one, mark it here.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(m => {
+      const pills = (m.platforms && m.platforms.length)
+        ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
+        : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
+      const actions = (m.status === 'towatch'
+        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
+        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
+        + '<button class="icon-btn" data-action="share" data-id="' + m.id + '" title="Share as image">📤</button>';
+      let updateBannerHtml = '';
+      if (m.hasUpdate) {
+        const detail = m.updateDetail || m.latestKnown || 'a new episode/season';
+        const waText = encodeURIComponent('🎬 ' + m.title + ' just dropped: ' + detail + '!');
+        updateBannerHtml = '<div class="update-banner"><span>🆕 New today: ' + escapeHtml(detail) + '</span>' +
+          '<a class="icon-btn whatsapp-btn" href="https://wa.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>' +
+          '<button class="icon-btn" data-action="dismiss-update" data-id="' + m.id + '">Got it</button></div>';
+      }
+      let detailsHtml = '';
+      const isOpen = expandedIds.has(m.id);
+      if (isOpen) {
+        if (m.mediaType === 'series') {
+          if (m.seasonDetailsLoading) detailsHtml = '<div class="details-panel"><div class="details-loading">Checking episode guide…</div></div>';
+          else if (m.seasonDetails) {
+            const seasonsListHtml = (m.seasonDetails.seasons && m.seasonDetails.seasons.length)
+              ? '<ul class="season-list">' + m.seasonDetails.seasons.map(s => '<li>Season ' + escapeHtml(String(s.season)) + ' — ' + escapeHtml(String(s.episodes)) + ' episodes</li>').join('') + '</ul>'
+              : '<p class="details-empty">No season breakdown found.</p>';
+            detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '') + seasonsListHtml +
+              '<p class="next-episode">📅 ' + escapeHtml(m.seasonDetails.nextEpisode || 'No schedule info found.') + '</p>' +
+              '<button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Refresh</button></div>';
+          } else {
+            detailsHtml = '<div class="details-panel">' + (state.apiKey && m.tmdbId
+              ? '<p class="details-empty">Couldn\'t load episode details.</p><button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Try again</button>'
+              : '<p class="details-empty">Add a TMDB API key and re-search this title to load episode details.</p>') + '</div>';
+          }
+        } else {
+          detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '<p class="details-empty">No extra details available.</p>') + '</div>';
+        }
+      }
+      const posterImgHtml = isValidLink(m.posterLink) ? '<img class="t-poster" src="' + escapeHtml(m.posterLink) + '" alt="" />' : '<div class="t-poster"></div>';
+      const genresHtml = (m.genres && m.genres.length) ? '<p class="t-genres">' + genreTagsHtml(m.genres, 'small') + '</p>' : '';
+      return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + '" data-ticket-id="' + m.id + '">' + posterImgHtml + '<div class="stub">' + (m.year || '—') + '</div><div class="body">' +
+        '<p class="t-title" data-action="toggle-details" data-id="' + m.id + '">' + escapeHtml(m.title) +
+        typeTagHtml(m.mediaType) + imdbBadgeHtml(m.imdbRating) + ' <span class="caret">' + (isOpen ? '▾' : '▸') + '</span></p>' +
+        genresHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions + '</div></div></div>';
+    }).join('');
+  }
+
+  listEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    if (action === 'toggle-details') { toggleDetails(id); return; }
+    if (action === 'refresh-details') { expandedIds.add(id); fetchSeasonDetails(id); return; }
+    if (action === 'share') { const movieToShare = state.movies.find(m => m.id === id); if (movieToShare) shareMovie(movieToShare); return; }
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie) return;
+    if (action === 'watched') movie.status = 'watched';
+    if (action === 'towatch') movie.status = 'towatch';
+    if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
+    if (action === 'remove') state.movies = state.movies.filter(m => m.id !== id);
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest(); backfillImdbRatings(); backfillGenres();
+  });
+
+  document.getElementById('suggest-refresh-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    generateSuggestions();
+  });
+  document.getElementById('suggest-body').addEventListener('click', (e) => {
+    const addBtn = e.target.closest('[data-add]');
+    if (addBtn) { addSuggestionToWatchlist(addBtn.getAttribute('data-add')); return; }
+    const dismissBtn = e.target.closest('[data-dismiss]');
+    if (dismissBtn) { dismissSuggestion(dismissBtn.getAttribute('data-dismiss')); return; }
+  });
+
+  tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
+  tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
+  tabSuggested.addEventListener('click', () => { state.activeTab = 'suggested'; renderTabs(); });
+
+  document.getElementById('media-filter').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    state.mediaFilter = btn.getAttribute('data-filter');
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderList();
+  });
+
+  document.getElementById('list-search').addEventListener('input', (e) => {
+    state.listSearchQuery = e.target.value;
+    renderList();
+  });
+
+  // --- Share as image (PNG) --------------------------------------------------
+  // Renders a branded PNG — either the whole current list or a single title,
+  // with genre, IMDb rating, and where-to-watch info baked into the image —
+  // then hands it to the native share sheet (covers WhatsApp, Instagram, etc.
+  // in one tap) with a download fallback for browsers that can't share files.
+  function ensureFontsReady() { return (document.fonts && document.fonts.ready) ? document.fonts.ready.catch(() => {}) : Promise.resolve(); }
+  function loadImageEl(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = src;
+    });
+  }
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function truncateToWidth(ctx, text, maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t + '…';
+  }
+  // Draws left-to-right pill "chips" (genres, platforms), wrapping to a new row
+  // when a chip would overflow maxWidth. Returns the y position after the chips.
+  function drawChips(ctx, items, x, y, maxWidth, fontPx, textColor, bgColor) {
+    if (!items || !items.length) return y;
+    const padX = 10, padY = 5, gap = 8, lineHeight = fontPx + padY * 2 + 6;
+    ctx.font = '700 ' + fontPx + 'px Inter, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    let curX = x, curY = y;
+    items.forEach(text => {
+      const w = ctx.measureText(text).width + padX * 2;
+      if (curX !== x && curX + w > x + maxWidth) { curX = x; curY += lineHeight; }
+      ctx.fillStyle = bgColor;
+      roundRectPath(ctx, curX, curY, w, fontPx + padY * 2, (fontPx + padY * 2) / 2);
+      ctx.fill();
+      ctx.fillStyle = textColor;
+      ctx.fillText(text, curX + padX, curY + fontPx + padY - 3);
+      curX += w + gap;
+    });
+    return curY + lineHeight;
+  }
+  function platformChipLabel(p) { return p.name + ' · ' + platformLabel(p.type); }
+
+  async function renderListToCanvas(tab, mediaFilter) {
+    await ensureFontsReady();
+    const items = state.movies.filter(m => m.status === tab && (mediaFilter === 'all' || (m.mediaType || 'movie') === mediaFilter));
+    const width = 720, paddingX = 40, maxCards = 12;
+    const shown = items.slice(0, maxCards);
+    const cardHeight = 118;
+    const headerHeight = 108;
+    const footerHeight = 46;
+    const overflowHeight = items.length > maxCards ? 34 : 0;
+    const height = headerHeight + Math.max(shown.length, 1) * cardHeight + overflowHeight + footerHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#E8B94D';
+    ctx.font = '700 38px "Bebas Neue"';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('MARQUEE', paddingX, 52);
+    ctx.fillStyle = '#9AA0BE';
+    ctx.font = '400 15px Inter, sans-serif';
+    const label = tab === 'watched' ? 'Watched' : 'To Watch';
+    const filterLabel = mediaFilter === 'series' ? 'Series' : (mediaFilter === 'movie' ? 'Movies' : 'All');
+    ctx.fillText('My "' + label + '" list · ' + filterLabel, paddingX, 76);
+    ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(paddingX, headerHeight - 14); ctx.lineTo(width - paddingX, headerHeight - 14); ctx.stroke();
+
+    if (!shown.length) {
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 16px Inter, sans-serif';
+      ctx.fillText('Nothing here yet.', paddingX, headerHeight + 40);
+    }
+    let y = headerHeight;
+    shown.forEach(m => {
+      const cardTop = y + 14;
+      ctx.fillStyle = '#F3F1EA';
+      ctx.font = '700 24px "Bebas Neue"';
+      const title = m.title + (m.year ? ' (' + m.year + ')' : '') + (m.mediaType === 'series' ? '  ·  SERIES' : '  ·  MOVIE');
+      let rightEdge = width - paddingX;
+      if (m.imdbRating) {
+        const badgeText = 'IMDb ' + m.imdbRating;
+        ctx.font = '700 13px Inter, sans-serif';
+        const bw = ctx.measureText(badgeText).width + 16;
+        ctx.fillStyle = '#E8B94D';
+        roundRectPath(ctx, width - paddingX - bw, cardTop, bw, 22, 6); ctx.fill();
+        ctx.fillStyle = '#1A1500';
+        ctx.fillText(badgeText, width - paddingX - bw + 8, cardTop + 15);
+        rightEdge = width - paddingX - bw - 12;
+      }
+      ctx.fillStyle = '#F3F1EA';
+      ctx.font = '700 24px "Bebas Neue"';
+      ctx.fillText(truncateToWidth(ctx, title, rightEdge - paddingX), paddingX, cardTop + 20);
+
+      const genreText = (m.genres && m.genres.length) ? m.genres.slice(0, 3).join('  •  ') : 'Genre unknown';
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, genreText, width - paddingX * 2), paddingX, cardTop + 46);
+
+      const platformNames = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 3).map(p => p.name).join(', ') : 'No availability found';
+      ctx.fillStyle = '#7FB3D5';
+      ctx.font = '400 13px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, 'Watch on: ' + platformNames, width - paddingX * 2), paddingX, cardTop + 68);
+
+      const dividerY = y + cardHeight - 6;
+      ctx.strokeStyle = 'rgba(51,57,92,0.6)';
+      ctx.beginPath(); ctx.moveTo(paddingX, dividerY); ctx.lineTo(width - paddingX, dividerY); ctx.stroke();
+      y += cardHeight;
+    });
+    if (items.length > maxCards) {
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText('…and ' + (items.length - maxCards) + ' more', paddingX, y + 24);
+      y += overflowHeight;
+    }
+    ctx.fillStyle = '#9AA0BE';
+    ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', paddingX, height - 18);
+    return canvas;
+  }
+
+  async function renderMovieToCanvas(m) {
+    await ensureFontsReady();
+    const width = 720, height = 380;
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
+
+    const posterX = 40, posterY = 44, posterW = 190, posterH = 285;
+    let posterDrawn = false;
+    if (isValidLink(m.posterLink)) {
+      try { const img = await loadImageEl(m.posterLink); ctx.drawImage(img, posterX, posterY, posterW, posterH); posterDrawn = true; }
+      catch (e) { /* CORS or network failure — fall back to a plain placeholder box */ }
+    }
+    if (!posterDrawn) {
+      ctx.fillStyle = '#1B2038'; ctx.fillRect(posterX, posterY, posterW, posterH);
+      ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1; ctx.strokeRect(posterX, posterY, posterW, posterH);
+      ctx.fillStyle = '#9AA0BE'; ctx.font = '400 13px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('No poster', posterX + posterW / 2, posterY + posterH / 2);
+      ctx.textAlign = 'left';
+    }
+
+    const textX = posterX + posterW + 32;
+    const textWidth = width - textX - 36;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#E8B94D';
+    ctx.font = '700 20px "Bebas Neue"';
+    ctx.fillText('MARQUEE', textX, 40);
+
+    ctx.fillStyle = '#F3F1EA';
+    ctx.font = '700 32px "Bebas Neue"';
+    const titleLine = m.title + (m.year ? ' (' + m.year + ')' : '');
+    let ty = 78;
+    // simple word-wrap across up to two lines
+    const words = titleLine.split(' ');
+    let line = '', lines = [];
+    words.forEach(w => {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > textWidth && line) { lines.push(line); line = w; } else { line = test; }
+    });
+    if (line) lines.push(line);
+    lines.slice(0, 2).forEach((l, i) => { ctx.fillText(l, textX, ty + i * 36); });
+    ty += lines.slice(0, 2).length * 36 + 4;
+
+    if (m.mediaType === 'series') {
+      ctx.fillStyle = '#E8B94D'; ctx.font = '700 12px Inter, sans-serif';
+      const sw = ctx.measureText('SERIES').width + 14;
+      roundRectPath(ctx, textX, ty, sw, 20, 5); ctx.fill();
+      ctx.fillStyle = '#16213e'; ctx.fillText('SERIES', textX + 7, ty + 14);
+      ty += 32;
+    }
+    if (m.imdbRating) {
+      ctx.font = '700 14px Inter, sans-serif';
+      const badgeText = 'IMDb ' + m.imdbRating;
+      const bw = ctx.measureText(badgeText).width + 16;
+      ctx.fillStyle = '#E8B94D';
+      roundRectPath(ctx, textX, ty, bw, 24, 6); ctx.fill();
+      ctx.fillStyle = '#1A1500';
+      ctx.fillText(badgeText, textX + 8, ty + 17);
+      ty += 36;
+    } else {
+      ty += 8;
+    }
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('GENRE', textX, ty); ty += 8;
+    const genres = (m.genres && m.genres.length) ? m.genres.slice(0, 4) : ['Not available'];
+    ty = drawChips(ctx, genres, textX, ty, textWidth, 13, '#E8B94D', 'rgba(232,185,77,0.14)') + 6;
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('WHERE TO WATCH', textX, ty); ty += 8;
+    const platformChips = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 4).map(platformChipLabel) : ['No availability found'];
+    ty = drawChips(ctx, platformChips, textX, ty, textWidth, 13, '#7FB3D5', 'rgba(127,179,213,0.14)');
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', textX, height - 18);
+    return canvas;
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      try { canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob returned nothing')), 'image/png'); }
+      catch (e) { reject(e); }
+    });
+  }
+
+  async function shareCanvasAsPng(canvas, filename, shareTitle) {
+    let blob;
+    try { blob = await canvasToPngBlob(canvas); }
+    catch (e) { console.error(e); alert("Couldn't generate the image. Please try again."); return; }
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: shareTitle }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; /* otherwise fall through to download */ }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    alert('Image saved! Attach it from your downloads/gallery in WhatsApp, Instagram, etc.');
+  }
+
+  async function shareCurrentList() {
+    const tab = state.activeTab === 'watched' ? 'watched' : 'towatch';
+    const hasItems = state.movies.some(m => m.status === tab && (state.mediaFilter === 'all' || (m.mediaType || 'movie') === state.mediaFilter));
+    if (!hasItems) { alert('This list is empty — add something first!'); return; }
+    const btn = document.getElementById('share-list-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const canvas = await renderListToCanvas(tab, state.mediaFilter);
+      await shareCanvasAsPng(canvas, 'marquee-' + tab + '.png', 'My Marquee list');
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = '📤 Share'; } }
+  }
+
+  async function shareMovie(m) {
+    await shareCanvasAsPng(await renderMovieToCanvas(m), 'marquee-' + m.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png', m.title);
+  }
+
+  document.getElementById('share-list-btn').addEventListener('click', shareCurrentList);
+
+  regionSelect.addEventListener('change', () => {
+    if (regionSelect.value === 'Other') { regionCustom.style.display = 'inline-block'; regionCustom.focus(); }
+    else { regionCustom.style.display = 'none'; state.region = regionSelect.value; saveToFirestore(); }
+  });
+  regionCustom.addEventListener('change', () => {
+    const v = regionCustom.value.trim().toUpperCase();
+    if (v.length === 2) { state.region = v; saveToFirestore(); }
+  });
+
+  document.getElementById('settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    apiKeyPanel.classList.toggle('open');
+  });
+  document.getElementById('save-key-btn').addEventListener('click', () => {
+    state.apiKey = apiKeyInput.value.trim(); saveApiKey(state.apiKey); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
+    maybeAutoSuggest();
+  });
+  document.getElementById('clear-key-btn').addEventListener('click', () => {
+    state.apiKey = ''; apiKeyInput.value = ''; saveApiKey(''); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
+    state.suggestions = []; state.suggestState = 'idle';
+    renderSuggestPanel();
+  });
+
+  document.getElementById('omdb-settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    omdbKeyPanel.classList.toggle('open');
+  });
+  document.getElementById('save-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = omdbKeyInput.value.trim(); saveOmdbKey(state.omdbKey); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
+    backfillImdbRatings();
+    if (state.suggestions.length) attachImdbRatingsToSuggestions();
+  });
+  document.getElementById('clear-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = ''; omdbKeyInput.value = ''; saveOmdbKey(''); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
+  });
+
+  async function doSearch(title) {
+    hideSuggestions();
+    state.lastQuery = title; state.searchState = 'loading'; state.searchCandidates = []; state.personSearchName = ''; renderResult();
+    try {
+      const candidates = await fetchSearchCandidates(title);
+      if (!candidates.length) {
+        state.searchResult = { title, year: '', mediaType: 'movie', summary: "Couldn't find this title or person.", posterLink: '', platforms: [], tmdbId: null };
+        state.searchState = 'result';
+      } else if (candidates.length === 1 && candidates[0].mediaType === 'person') {
+        // Single person match — load their filmography directly
+        await loadPersonFilmography(candidates[0].tmdbId, candidates[0].title);
+        return;
+      } else if (candidates.length === 1) {
+        // Only one title match — no ambiguity, so go straight to the result card.
+        state.searchResult = await buildResultFromCandidate(candidates[0], state.region);
+        state.searchState = 'result';
+      } else {
+        // Several matches (titles and/or people) — let the user pick.
+        await ensureGenreMaps();
+        state.searchCandidates = candidates;
+        state.searchState = 'choices';
+      }
+    } catch (err) {
+      console.error(err);
+      state.errorMsg = friendlySearchError(err);
+      state.searchState = 'error';
+    }
+    renderResult();
+  }
+
+  async function chooseSearchCandidate(idx) {
+    const cand = state.searchCandidates[idx];
+    if (!cand) return;
+    // Person row → load their filmography as a new choice list
+    if (cand.mediaType === 'person') {
+      state.searchState = 'loading'; renderResult();
+      try {
+        await loadPersonFilmography(cand.tmdbId, cand.title);
+      } catch (err) {
+        console.error(err);
+        state.errorMsg = friendlySearchError(err);
+        state.searchState = 'error';
+        renderResult();
+      }
+      return;
+    }
+    state.searchState = 'loading'; renderResult();
+    try {
+      state.searchResult = await buildResultFromCandidate(cand, state.region);
+      state.searchState = 'result';
+    } catch (err) {
+      console.error(err);
+      state.errorMsg = friendlySearchError(err);
+      state.searchState = 'error';
+    }
+    renderResult();
+  }
+
+  // Load a person's movie + TV credits and present them as search choices
+  async function loadPersonFilmography(personId, personName) {
+    const credits = await tmdbGet('/person/' + personId + '/combined_credits', { language: 'en-US' });
+    const cast = (credits.cast || []).filter(c => c.media_type === 'movie' || c.media_type === 'tv');
+    // Prefer acting roles with higher popularity / more recent first
+    cast.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    const seen = new Set();
+    const candidates = [];
+    for (const c of cast) {
+      const key = c.media_type + ':' + c.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const mediaType = c.media_type === 'tv' ? 'series' : 'movie';
+      const title = mediaType === 'series' ? (c.name || '') : (c.title || '');
+      if (!title) continue;
+      candidates.push({
+        tmdbId: c.id,
+        mediaType,
+        title,
+        year: yearFromDate(mediaType === 'series' ? c.first_air_date : c.release_date),
+        language: c.original_language || '',
+        posterPath: c.poster_path || '',
+        genreIds: c.genre_ids || [],
+        character: c.character || ''
+      });
+      if (candidates.length >= 20) break;
+    }
+    if (!candidates.length) {
+      state.searchResult = { title: personName, year: '', mediaType: 'movie', summary: 'No filmography found for this person.', posterLink: '', platforms: [], tmdbId: null };
+      state.searchState = 'result';
+      renderResult();
+      return;
+    }
+    await ensureGenreMaps();
+    state.searchCandidates = candidates;
+    state.personSearchName = personName;
+    state.searchState = 'choices';
+    renderResult();
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = input.value.trim();
+    if (title) doSearch(title);
+  });
+
+  let suggestTimer = null, suggestSeq = 0;
+  const suggestCache = {};
+  function renderSuggestions(list) {
+    if (!list || !list.length) { hideSuggestions(); return; }
+    suggestionsEl.innerHTML = list.map(t => {
+      let tag = '';
+      if (t.mediaType === 'series') tag = ' <span class="series-tag" style="font-size:9px; padding:0 4px;">SERIES</span>';
+      else if (t.mediaType === 'person') tag = ' <span class="person-tag" style="font-size:9px; padding:0 4px;">ACTOR</span>';
+      else if (t.mediaType === 'movie') tag = ' <span class="movie-tag" style="font-size:9px; padding:0 4px;">MOVIE</span>';
+      const attrs = t.mediaType === 'person'
+        ? ' data-person-id="' + t.tmdbId + '" data-title="' + escapeHtml(t.title) + '"'
+        : ' data-title="' + escapeHtml(t.title) + '"';
+      return '<div class="suggestion-item"' + attrs + '>' +
+        '<span class="suggestion-title">' + escapeHtml(t.title) + tag + '</span>' +
+        (t.genres && t.genres.length ? '<span class="suggestion-genre">' + escapeHtml(t.genres.join(' • ')) + '</span>' : '') +
+        '</div>';
+    }).join('');
+    suggestionsEl.style.display = 'block';
+  }
+  function hideSuggestions() { suggestionsEl.innerHTML = ''; suggestionsEl.style.display = 'none'; }
+  async function fetchSuggestions(q) {
+    if (!state.apiKey) return;
+    const key = q.toLowerCase();
+    if (suggestCache[key]) { renderSuggestions(suggestCache[key]); return; }
+    const mySeq = ++suggestSeq;
+    suggestionsEl.innerHTML = '<div class="suggestion-loading">Searching…</div>';
+    suggestionsEl.style.display = 'block';
+    try {
+      await ensureGenreMaps();
+      const multi = await tmdbGet('/search/multi', { query: q, include_adult: 'false', language: 'en-US', page: 1 });
+      if (mySeq !== suggestSeq) return;
+      const list = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person').slice(0, 8)
+        .map(r => {
+          if (r.media_type === 'person') {
+            const name = r.name || '';
+            if (!name) return null;
+            const known = r.known_for_department || 'Acting';
+            return { title: name, mediaType: 'person', tmdbId: r.id, genres: [known] };
+          }
+          const mediaType = r.media_type === 'tv' ? 'series' : 'movie';
+          const title = mediaType === 'series' ? (r.name || '') : (r.title || '');
+          if (!title) return null;
+          return { title, mediaType, genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 2) };
+        }).filter(Boolean);
+      suggestCache[key] = list;
+      if (mySeq === suggestSeq) renderSuggestions(list);
+    } catch (e) { if (mySeq === suggestSeq) hideSuggestions(); }
+  }
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(suggestTimer);
+    if (q.length < 2) { hideSuggestions(); return; }
+    suggestTimer = setTimeout(() => fetchSuggestions(q), 350);
+  });
+  input.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+  suggestionsEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.suggestion-item');
+    if (!item) return;
+    const personId = item.getAttribute('data-person-id');
+    const title = item.getAttribute('data-title');
+    input.value = title || '';
+    hideSuggestions();
+    if (personId) {
+      state.searchState = 'loading'; renderResult();
+      loadPersonFilmography(personId, title).catch(err => {
+        console.error(err);
+        state.errorMsg = friendlySearchError(err);
+        state.searchState = 'error';
+        renderResult();
+      });
+    } else {
+      doSearch(input.value);
+    }
+  });
+
+  googleBtn.addEventListener('click', signInWithGoogle);
+  logoutBtn.addEventListener('click', signOut);
+
+  const notifBell = document.getElementById('notif-bell');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  notifBell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notifDropdown.style.display = notifDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+  notifDropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Clear all
+    if (e.target.closest('#notif-clear-all')) {
+      if (clearAllNotifications()) { saveToFirestore(); renderList(); }
+      renderNotifications();
+      return;
+    }
+    // Dismiss single without navigating
+    const dismissBtn = e.target.closest('[data-dismiss-id]');
+    if (dismissBtn) {
+      const id = dismissBtn.getAttribute('data-dismiss-id');
+      if (clearNotification(id)) { saveToFirestore(); renderList(); }
+      renderNotifications();
+      return;
+    }
+    // Open item and clear its notification
+    const item = e.target.closest('.notif-item');
+    if (!item) return;
+    const id = item.getAttribute('data-id');
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return;
+    clearNotification(id);
+    saveToFirestore();
+    state.activeTab = 'towatch';
+    // Keep "All" filter so the item is always visible; only switch if user is on exclusive filter
+    if (state.mediaFilter !== 'all' && state.mediaFilter !== (m.mediaType === 'series' ? 'series' : 'movie')) {
+      state.mediaFilter = 'all';
+    }
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    expandedIds.add(id);
+    renderTabs(); renderList(); renderNotifications();
+    notifDropdown.style.display = 'none';
+    requestAnimationFrame(() => {
+      const el = listEl.querySelector('[data-ticket-id="' + id + '"]');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+  document.addEventListener('click', (e) => {
+    if (notifDropdown.style.display === 'block' && !notifDropdown.contains(e.target) && e.target !== notifBell) {
+      notifDropdown.style.display = 'none';
+    }
+  });
+
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      state.user = user;
+      authOverlay.classList.add('hidden');
+      appRoot.style.display = 'flex';
+      updateUserBar();
+      state.apiKeyFromCloud = false;
+      state.omdbKeyFromCloud = false;
+      await loadFromFirestore();
+      if (!state.apiKeyFromCloud) {
+        // Cloud had no saved key (new account, or a key saved before this feature existed
+        // only locally on this device) — fall back to whatever's cached here, and if found,
+        // push it up to Firestore so it's available on every device from now on.
+        const localKey = loadApiKey();
+        if (localKey) { state.apiKey = localKey; saveToFirestore(true); }
+      }
+      if (!state.omdbKeyFromCloud) {
+        const localOmdbKey = loadOmdbKey();
+        if (localOmdbKey) { state.omdbKey = localOmdbKey; saveToFirestore(true); }
+      }
+      apiKeyInput.value = state.apiKey;
+      omdbKeyInput.value = state.omdbKey;
+      if (!state.region) state.region = loadRegionLocal();
+      applyRegionToControls();
+      updateKeyStatus();
+      updateOmdbKeyStatus();
+      renderTabs();
+      renderList();
+      renderNotifications();
+      if (state.apiKey) ensureGenreMaps();
+      maybeAutoSuggest();
+      backfillImdbRatings();
+      backfillGenres();
+      if (state.apiKey) checkAllSeriesUpdates();
+    } else {
+      state.user = null;
+      state.movies = [];
+      authOverlay.classList.remove('hidden');
+      appRoot.style.display = 'none';
+      clearAuthError();
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google';
+    }
+  });
+})();
+
+</script>
+
+<!-- PWA: service worker registration (separate from the app's own script, so it can't interfere with app logic) -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Marquee: service worker registration failed', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
