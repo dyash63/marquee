@@ -5,19 +5,17 @@
 //
 // index.html is served NETWORK-FIRST: the app's code changes fairly often during
 // development, and a cache-first HTML shell can silently keep serving an old
-// version of the app after you deploy a fix (exactly what happened here — the
-// API key Firestore sync was added to index.html, but nothing told an
-// already-installed service worker that the cached copy was stale). Only if the
+// version of the app after you deploy a fix. Only if the
 // network is unreachable (offline) does it fall back to the last cached copy.
 //
 // icons/manifest.json rarely change, so those stay cache-first for speed.
 //
-// NOTE: bump CACHE_NAME (e.g. v2 -> v3) any time you want to force every
+// NOTE: bump CACHE_NAME any time you want to force every
 // already-installed copy of this service worker to drop its old cache —
 // the browser only re-installs a service worker when sw.js's own bytes change.
 const CACHE_NAME = 'marquee-static-v4';
 
-const NETWORK_FIRST_URLS = ['./', './index.html'];
+const NETWORK_FIRST_URLS = ['./', './index.html', './app.js'];
 const CACHE_FIRST_URLS = [
   './manifest.json',
   './icons/icon-180.png',
@@ -52,17 +50,13 @@ function resolvedPath(p) {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
 
-  // Only handle same-origin GET requests for our own static shell.
-  // Everything else (TMDB API, watch-provider data, Firebase Auth/Firestore,
-  // Google Fonts, any cross-origin call) is left completely untouched so the
-  // app's live data is never served stale or intercepted.
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
   const isNetworkFirst = NETWORK_FIRST_URLS.some((p) => url.pathname === resolvedPath(p))
-    || url.pathname.endsWith('/index.html');
+    || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/app.js');
   const isCacheFirst = CACHE_FIRST_URLS.some((p) => url.pathname === resolvedPath(p));
 
   if (isNetworkFirst) {
