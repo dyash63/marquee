@@ -1,0 +1,85 @@
+('movies');
+    if (!raw) return [];
+    try { return JSON.parse(raw); } catch (e) { return []; }
+  }
+  function loadRegionLocal() { return tryLoad('region') || 'IN'; }
+  function loadApiKey() { return tryLoad('tmdbKey') || ''; }
+  function loadOmdbKey() { return tryLoad('omdbKey') || ''; }
+  function saveOmdbKey(key) {
+    if (key) trySave('omdbKey', key);
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'omdbKey'); } catch (e) {}
+  }
+  function loadDismissedSuggestions() {
+    try { return new Set(JSON.parse(tryLoad('dismissedSuggestions') || '[]')); } catch (e) { return new Set(); }
+  }
+  function saveDismissedSuggestions(set) { trySave('dismissedSuggestions', JSON.stringify(Array.from(set))); }
+  function saveApiKey(key) {
+    if (key) trySave('tmdbKey', key);
+    else try { localStorage.removeItem(STORAGE_PREFIX + 'tmdbKey'); } catch (e) {}
+  }
+
+  function applyRegionToControls() {
+    const known = ['IN','US','GB','CA','AU'];
+    if (known.includes(state.region)) { regionSelect.value = state.region; regionCustom.style.display = 'none'; }
+    else { regionSelect.value = 'Other'; regionCustom.style.display = 'inline-block'; regionCustom.value = state.region; }
+  }
+  function updateKeyStatus() {
+    if (state.apiKey) { keyStatus.textContent = 'Key saved ✓'; keyStatus.style.color = 'var(--free)'; }
+    else { keyStatus.textContent = 'No key set'; keyStatus.style.color = 'var(--text-muted)'; }
+    const settingsRow = document.getElementById('settings-row');
+    if (settingsRow) settingsRow.style.display = state.apiKey ? 'none' : '';
+  }
+  function updateOmdbKeyStatus() {
+    if (state.omdbKey) { omdbKeyStatus.textContent = 'Key saved ✓'; omdbKeyStatus.style.color = 'var(--free)'; }
+    else { omdbKeyStatus.textContent = 'No key set'; omdbKeyStatus.style.color = 'var(--text-muted)'; }
+    const omdbRow = document.getElementById('omdb-settings-row');
+    if (omdbRow) omdbRow.style.display = state.omdbKey ? 'none' : '';
+  }
+
+  function requireApiKey() {
+    if (!state.apiKey || !state.apiKey.trim()) throw Object.assign(new Error('API key required'), { needsKey: true });
+  }
+  async function tmdbGet(path, params) {
+    requireApiKey();
+    const url = new URL(TMDB_BASE + path);
+    url.searchParams.set('api_key', state.apiKey.trim());
+    if (params) Object.keys(params).forEach(k => { if (params[k] != null) url.searchParams.set(k, params[k]); });
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      let detail = '';
+      try { detail = (await response.json()).status_message || ''; } catch (e) {}
+      const err = new Error('HTTP ' + response.status + (detail ? ': ' + detail : ''));
+      err.status = response.status; throw err;
+    }
+    return response.json();
+  }
+  function yearFromDate(d) { return (d && typeof d === 'string') ? d.slice(0, 4) : ''; }
+  function formatDMY(d) {
+    if (!d || typeof d !== 'string') return '';
+    const parts = d.slice(0, 10).split('-');
+    if (parts.length !== 3) return d;
+    const [y, m, day] = parts;
+    return day + '-' + m + '-' + y;
+  }
+  function mapProviders(regionData) {
+    if (!regionData) return [];
+    const out = [], seen = new Set();
+    function add(list, type) {
+      (list || []).forEach(p => {
+        const key = p.provider_name + type;
+        if (seen.has(key)) return; seen.add(key);
+        out.push({ name: p.provider_name, type });
+      });
+    }
+    add(regionData.flatrate, 'stream'); add(regionData.ads, 'free'); add(regionData.free, 'free');
+    add(regionData.rent, 'rent'); add(regionData.buy, 'buy');
+    return out;
+  }
+
+  // --- Genre lookup ----------------------------------------------------------
+  // TMDB's search/multi and recommendations endpoints only return genre_ids,
+  // not names, so we fetch the movie + TV genre dictionaries once and cache
+  // them for the whole session, then resolve ids -> names anywhere we need to
+  // show a genre tag (autocomplete, disambiguation list, watchlist tickets,
+  // suggestion cards).
+  let 

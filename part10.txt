@@ -1,0 +1,90 @@
+ || '').toLowerCase();
+    const summary = (m.summary || '').toLowerCase();
+    const genres = (m.genres || []).map(g => String(g).toLowerCase()).join(' ');
+    let score = 0;
+    let any = false;
+    for (const t of tokens) {
+      let best = 0;
+      if (title === t) best = 100;
+      else if (title.startsWith(t)) best = 80;
+      else if (title.includes(t)) best = 60;
+      else if (fuzzyTokenMatch(title, t)) best = 40;
+      if (fuzzyTokenMatch(genres, t)) best = Math.max(best, 35);
+      if (fuzzyTokenMatch(summary, t)) best = Math.max(best, 20);
+      if (best > 0) { any = true; score += best; }
+    }
+    if (any && tokens.every(t => fuzzyTokenMatch(title, t) || fuzzyTokenMatch(summary, t) || fuzzyTokenMatch(genres, t))) {
+      score += 15;
+    }
+    return { score, matched: any };
+  }
+
+  function highlightText(text, tokens) {
+    if (!text) return '';
+    if (!tokens || !tokens.length) return escapeHtml(text);
+    const sorted = tokens.slice().sort((a, b) => b.length - a.length);
+    const parts = [];
+    const remaining = String(text);
+    const lower = remaining.toLowerCase();
+    let i = 0;
+    while (i < remaining.length) {
+      let hit = null;
+      let hitLen = 0;
+      for (const t of sorted) {
+        if (!t) continue;
+        if (lower.startsWith(t, i)) {
+          hit = remaining.slice(i, i + t.length);
+          hitLen = t.length;
+          break;
+        }
+      }
+      if (hit) {
+        parts.push('<span class="highlight">' + escapeHtml(hit) + '</span>');
+        i += hitLen;
+      } else {
+        let next = remaining.length;
+        for (const t of sorted) {
+          if (!t) continue;
+          const idx = lower.indexOf(t, i + 1);
+          if (idx !== -1 && idx < next) next = idx;
+        }
+        parts.push(escapeHtml(remaining.slice(i, next)));
+        i = next;
+      }
+    }
+    return parts.join('');
+  }
+
+  const authOverlay = document.getElementById('auth-overlay');
+  const appRoot = document.getElementById('marquee-app');
+  const googleBtn = document.getElementById('google-signin-btn');
+  const authErrorEl = document.getElementById('auth-error');
+  const userNameEl = document.getElementById('user-name');
+  const logoutBtn = document.getElementById('logout-btn');
+  const resultArea = document.getElementById('result-area');
+  const listEl = document.getElementById('list');
+  const form = document.getElementById('search-form');
+  const input = document.getElementById('movie-input');
+  const regionSelect = document.getElementById('region-select');
+  const regionCustom = document.getElementById('region-custom');
+  const tabToWatch = document.getElementById('tab-towatch');
+  const tabWatched = document.getElementById('tab-watched');
+  const tabSuggested = document.getElementById('tab-suggested');
+  const mediaFilterEl = document.getElementById('media-filter');
+  const listSearchRowEl = document.getElementById('list-search-row');
+  const suggestPanelEl = document.getElementById('suggest-panel');
+  const suggestionsEl = document.getElementById('suggestions');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const apiKeyPanel = document.getElementById('api-key-panel');
+  const keyStatus = document.getElementById('key-status');
+  const omdbKeyInput = document.getElementById('omdb-key-input');
+  const omdbKeyPanel = document.getElementById('omdb-key-panel');
+  const omdbKeyStatus = document.getElementById('omdb-key-status');
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function platformLabel(type) { return { stream: 'Stream', rent: 'Rent', buy: 'Buy', free: 'Free' }[type] || 'Available'; }
+  function isValidLink(url) { return typeof url === 'string' && /^https?:\/\//i.test(url.trim()); }
+  function trySave(key, value) { try { localStorage.setItem(STORAGE_PREFIX + key, value); return true; } catch (e) { return false; } }
+  function tryLoad(key) { try { return localStorage.getItem(STO
