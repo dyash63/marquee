@@ -54,7 +54,7 @@ ersonFilmography(personId, personName) {
       else if (t.mediaType === 'movie') tag = ' <span class="movie-tag" style="font-size:9px; padding:0 4px;">MOVIE</span>';
       const attrs = t.mediaType === 'person'
         ? ' data-person-id="' + t.tmdbId + '" data-title="' + escapeHtml(t.title) + '"'
-        : ' data-title="' + escapeHtml(t.title) + '";
+        : ' data-title="' + escapeHtml(t.title) + '"';
       return '<div class="suggestion-item"' + attrs + '>' +
         '<span class="suggestion-title">' + escapeHtml(t.title) + tag + '</span>' +
         (t.genres && t.genres.length ? '<span class="suggestion-genre">' + escapeHtml(t.genres.join(' • ')) + '</span>' : '') +
