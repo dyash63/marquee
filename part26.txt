@@ -1,0 +1,93 @@
+/ Tag chips
+  document.getElementById('tag-chips') && document.getElementById('tag-chips').addEventListener('click', (e) => {
+    const chip = e.target.closest('.tag-chip');
+    if (!chip) return;
+    state.tagFilter = chip.getAttribute('data-tag') || '';
+    state.kbIndex = 0;
+    renderList();
+  });
+
+  // Recent section
+  document.getElementById('recent-section') && document.getElementById('recent-section').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-recent-id]');
+    if (!item) return;
+    const id = item.getAttribute('data-recent-id');
+    const m = state.movies.find(x => x.id === id);
+    if (m) {
+      state.activeTab = m.status === 'watched' ? 'watched' : 'towatch';
+      renderTabs();
+      openModal(id);
+    } else {
+      // still allow opening hash for missing? just track
+      openModal(id);
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // don't steal when typing in inputs (except Escape handled by trap)
+    const tag = (e.target && e.target.tagName) || '';
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target && e.target.isContentEditable);
+    if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const ls = document.getElementById('list-search');
+      if (ls && state.activeTab !== 'suggested') { ls.focus(); ls.select(); }
+      return;
+    }
+    if (state.modalId) return; // modal trap handles Escape
+    if (typing) return;
+    if (state.activeTab === 'suggested') return;
+    const tickets = listEl.querySelectorAll('.ticket');
+    if (!tickets.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      state.kbIndex = Math.min(state.kbIndex + 1, tickets.length - 1);
+      if (state.kbIndex < 0) state.kbIndex = 0;
+      renderList();
+      const el = listEl.querySelector('.ticket.kb-focused');
+      if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      state.kbIndex = Math.max(state.kbIndex - 1, 0);
+      renderList();
+      const el = listEl.querySelector('.ticket.kb-focused');
+      if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } else if (e.key === 'Enter' && state.kbIndex >= 0) {
+      e.preventDefault();
+      const el = listEl.querySelector('.ticket.kb-focused');
+      if (el) openModal(el.getAttribute('data-ticket-id'));
+    }
+  });
+
+
+  document.getElementById('suggest-refresh-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    generateSuggestions();
+  });
+  document.getElementById('suggest-body').addEventListener('click', (e) => {
+    const addBtn = e.target.closest('[data-add]');
+    if (addBtn) { addSuggestionToWatchlist(addBtn.getAttribute('data-add')); return; }
+    const dismissBtn = e.target.closest('[data-dismiss]');
+    if (dismissBtn) { dismissSuggestion(dismissBtn.getAttribute('data-dismiss')); return; }
+  });
+
+  tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
+  tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
+  tabSuggested.addEventListener('click', () => { state.activeTab = 'suggested'; renderTabs(); });
+
+  document.getElementById('media-filter').addEventListener('click', (e) => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    state.mediaFilter = btn.getAttribute('data-filter');
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b === btn));
+    renderList();
+  });
+
+  document.getElementById('list-search').addEventListener('input', (e) => {
+    state.listSearchQuery = e.target.value;
+    renderList();
+  });
+
+  // --- Share as image (PNG) --------------------------------------------------
+  // Renders a branded PNG — either the whole current list or a single title,
+  // with genre, 

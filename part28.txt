@@ -1,0 +1,88 @@
+ + m.year + ')' : '') + (m.mediaType === 'series' ? '  ·  SERIES' : '  ·  MOVIE');
+      let rightEdge = width - paddingX;
+      if (m.imdbRating) {
+        const badgeText = 'IMDb ' + m.imdbRating;
+        ctx.font = '700 13px Inter, sans-serif';
+        const bw = ctx.measureText(badgeText).width + 16;
+        ctx.fillStyle = '#E8B94D';
+        roundRectPath(ctx, width - paddingX - bw, cardTop, bw, 22, 6); ctx.fill();
+        ctx.fillStyle = '#1A1500';
+        ctx.fillText(badgeText, width - paddingX - bw + 8, cardTop + 15);
+        rightEdge = width - paddingX - bw - 12;
+      }
+      ctx.fillStyle = '#F3F1EA';
+      ctx.font = '700 24px "Bebas Neue"';
+      ctx.fillText(truncateToWidth(ctx, title, rightEdge - paddingX), paddingX, cardTop + 20);
+
+      const genreText = (m.genres && m.genres.length) ? m.genres.slice(0, 3).join('  •  ') : 'Genre unknown';
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, genreText, width - paddingX * 2), paddingX, cardTop + 46);
+
+      const platformNames = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 3).map(p => p.name).join(', ') : 'No availability found';
+      ctx.fillStyle = '#7FB3D5';
+      ctx.font = '400 13px Inter, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, 'Watch on: ' + platformNames, width - paddingX * 2), paddingX, cardTop + 68);
+
+      const dividerY = y + cardHeight - 6;
+      ctx.strokeStyle = 'rgba(51,57,92,0.6)';
+      ctx.beginPath(); ctx.moveTo(paddingX, dividerY); ctx.lineTo(width - paddingX, dividerY); ctx.stroke();
+      y += cardHeight;
+    });
+    if (items.length > maxCards) {
+      ctx.fillStyle = '#9AA0BE';
+      ctx.font = '400 14px Inter, sans-serif';
+      ctx.fillText('…and ' + (items.length - maxCards) + ' more', paddingX, y + 24);
+      y += overflowHeight;
+    }
+    ctx.fillStyle = '#9AA0BE';
+    ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', paddingX, height - 18);
+    return canvas;
+  }
+
+  async function renderMovieToCanvas(m) {
+    await ensureFontsReady();
+    const width = 720, height = 380;
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12162A'; ctx.fillRect(0, 0, width, height);
+
+    const posterX = 40, posterY = 44, posterW = 190, posterH = 285;
+    let posterDrawn = false;
+    if (isValidLink(m.posterLink)) {
+      try { const img = await loadImageEl(m.posterLink); ctx.drawImage(img, posterX, posterY, posterW, posterH); posterDrawn = true; }
+      catch (e) { /* CORS or network failure — fall back to a plain placeholder box */ }
+    }
+    if (!posterDrawn) {
+      ctx.fillStyle = '#1B2038'; ctx.fillRect(posterX, posterY, posterW, posterH);
+      ctx.strokeStyle = '#33395C'; ctx.lineWidth = 1; ctx.strokeRect(posterX, posterY, posterW, posterH);
+      ctx.fillStyle = '#9AA0BE'; ctx.font = '400 13px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('No poster', posterX + posterW / 2, posterY + posterH / 2);
+      ctx.textAlign = 'left';
+    }
+
+    const textX = posterX + posterW + 32;
+    const textWidth = width - textX - 36;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#E8B94D';
+    ctx.font = '700 20px "Bebas Neue"';
+    ctx.fillText('MARQUEE', textX, 40);
+
+    ctx.fillStyle = '#F3F1EA';
+    ctx.font = '700 32px "Bebas Neue"';
+    const titleLine = m.title + (m.year ? ' (' + m.year + ')' : '');
+    let ty = 78;
+    // simple word-wrap across up to two lines
+    const words = titleLine.split(' ');
+    let line = '', lines = [];
+    words.forEach(w => {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > textWidth && line) { lines.push(line); line = w; } else { line = test; }
+    });
+    if (line) lines.push(line);
+    lines.slice(0, 2).forEach((l, i) => { ctx.fillText(l, textX, ty + i * 36); });
+    ty += lines.slice(0, 2).length * 36 + 4;
+
+    if
