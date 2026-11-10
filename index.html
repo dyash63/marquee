@@ -3,19 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Marquee</title>
-  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#12162A" />
+  <title>Marquee</title>
+  <style>html,body{margin:0;background:#12162A;min-height:100%}#boot{color:#9AA0BE;font-family:Inter,system-ui,sans-serif;padding:2rem;text-align:center}</style>
 </head>
 <body>
-  <p style="color:#F3F1EA;font-family:sans-serif;padding:2rem;background:#12162A;min-height:100vh">Deploying Marquee update… if this sticks, refresh in a moment.</p>
-  <script src="app.js"></script>
+  <p id="boot">Loading Marquee…</p>
   <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
-  }
+  (async function () {
+    var boot = document.getElementById('boot');
+    try {
+      var url = 'https://raw.githubusercontent.com/dyash63/marquee/backup/pre-update-20261110-2316/index.html?t=' + Date.now();
+      var r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var html = await r.text();
+      if (!html || html.indexOf('marquee-app') === -1) throw new Error('Bad payload');
+      document.open();
+      document.write(html);
+      document.close();
+    } catch (e) {
+      console.error(e);
+      if (boot) {
+        boot.innerHTML = 'Failed to load Marquee.<br><a href="https://github.com/dyash63/marquee" style="color:#E8B94D">Open repo</a><br><small style="opacity:.7">' + String(e && e.message || e) + '</small>';
+      }
+    }
+  })();
   </script>
 </body>
 </html>
