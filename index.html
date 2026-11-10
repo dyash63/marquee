@@ -1,1 +1,21 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Marquee</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#12162A" />
+</head>
+<body>
+  <p style="color:#F3F1EA;font-family:sans-serif;padding:2rem;background:#12162A;min-height:100vh">Deploying Marquee update… if this sticks, refresh in a moment.</p>
+  <script src="app.js"></script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+  </script>
+</body>
+</html>
