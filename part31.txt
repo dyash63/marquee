@@ -1,0 +1,85 @@
+ersonFilmography(personId, personName) {
+    const credits = await tmdbGet('/person/' + personId + '/combined_credits', { language: 'en-US' });
+    const cast = (credits.cast || []).filter(c => c.media_type === 'movie' || c.media_type === 'tv');
+    // Prefer acting roles with higher popularity / more recent first
+    cast.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+    const seen = new Set();
+    const candidates = [];
+    for (const c of cast) {
+      const key = c.media_type + ':' + c.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const mediaType = c.media_type === 'tv' ? 'series' : 'movie';
+      const title = mediaType === 'series' ? (c.name || '') : (c.title || '');
+      if (!title) continue;
+      candidates.push({
+        tmdbId: c.id,
+        mediaType,
+        title,
+        year: yearFromDate(mediaType === 'series' ? c.first_air_date : c.release_date),
+        language: c.original_language || '',
+        posterPath: c.poster_path || '',
+        genreIds: c.genre_ids || [],
+        character: c.character || ''
+      });
+      if (candidates.length >= 20) break;
+    }
+    if (!candidates.length) {
+      state.searchResult = { title: personName, year: '', mediaType: 'movie', summary: 'No filmography found for this person.', posterLink: '', platforms: [], tmdbId: null };
+      state.searchState = 'result';
+      renderResult();
+      return;
+    }
+    await ensureGenreMaps();
+    state.searchCandidates = candidates;
+    state.personSearchName = personName;
+    state.searchState = 'choices';
+    renderResult();
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = input.value.trim();
+    if (title) doSearch(title);
+  });
+
+  let suggestTimer = null, suggestSeq = 0;
+  const suggestCache = {};
+  function renderSuggestions(list) {
+    if (!list || !list.length) { hideSuggestions(); return; }
+    suggestionsEl.innerHTML = list.map(t => {
+      let tag = '';
+      if (t.mediaType === 'series') tag = ' <span class="series-tag" style="font-size:9px; padding:0 4px;">SERIES</span>';
+      else if (t.mediaType === 'person') tag = ' <span class="person-tag" style="font-size:9px; padding:0 4px;">ACTOR</span>';
+      else if (t.mediaType === 'movie') tag = ' <span class="movie-tag" style="font-size:9px; padding:0 4px;">MOVIE</span>';
+      const attrs = t.mediaType === 'person'
+        ? ' data-person-id="' + t.tmdbId + '" data-title="' + escapeHtml(t.title) + '"'
+        : ' data-title="' + escapeHtml(t.title) + '";
+      return '<div class="suggestion-item"' + attrs + '>' +
+        '<span class="suggestion-title">' + escapeHtml(t.title) + tag + '</span>' +
+        (t.genres && t.genres.length ? '<span class="suggestion-genre">' + escapeHtml(t.genres.join(' • ')) + '</span>' : '') +
+        '</div>';
+    }).join('');
+    suggestionsEl.style.display = 'block';
+  }
+  function hideSuggestions() { suggestionsEl.innerHTML = ''; suggestionsEl.style.display = 'none'; }
+  async function fetchSuggestions(q) {
+    if (!state.apiKey) return;
+    const key = q.toLowerCase();
+    if (suggestCache[key]) { renderSuggestions(suggestCache[key]); return; }
+    const mySeq = ++suggestSeq;
+    suggestionsEl.innerHTML = '<div class="suggestion-loading">Searching…</div>';
+    suggestionsEl.style.display = 'block';
+    try {
+      await ensureGenreMaps();
+      const multi = await tmdbGet('/search/multi', { query: q, include_adult: 'false', language: 'en-US', page: 1 });
+      if (mySeq !== suggestSeq) return;
+      const list = (multi.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person').slice(0, 8)
+        .map(r => {
+          if (r.media_type === 'person') {
+            const name = r.name || '';
+            if (!name) return null;
+            const known = r.known_for_department || 'Acting';
+            return { title: name, mediaType: 'person', tmdbId: r.id, genres: [known] };
+          }
+          const mediaType = r.media_typ

@@ -1,0 +1,102 @@
+e === 'tv' ? 'series' : 'movie';
+          const title = mediaType === 'series' ? (r.name || '') : (r.title || '');
+          if (!title) return null;
+          return { title, mediaType, genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 2) };
+        }).filter(Boolean);
+      suggestCache[key] = list;
+      if (mySeq === suggestSeq) renderSuggestions(list);
+    } catch (e) { if (mySeq === suggestSeq) hideSuggestions(); }
+  }
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearTimeout(suggestTimer);
+    if (q.length < 2) { hideSuggestions(); return; }
+    suggestTimer = setTimeout(() => fetchSuggestions(q), 350);
+  });
+  input.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+  suggestionsEl.addEventListener('click', (e) => {
+    const item = e.target.closest('.suggestion-item');
+    if (!item) return;
+    const personId = item.getAttribute('data-person-id');
+    const title = item.getAttribute('data-title');
+    input.value = title || '';
+    hideSuggestions();
+    if (personId) {
+      state.searchState = 'loading'; renderResult();
+      loadPersonFilmography(personId, title).catch(err => {
+        console.error(err);
+        state.errorMsg = friendlySearchError(err);
+        state.searchState = 'error';
+        renderResult();
+      });
+    } else {
+      doSearch(input.value);
+    }
+  });
+
+  googleBtn.addEventListener('click', signInWithGoogle);
+  logoutBtn.addEventListener('click', signOut);
+
+  const notifBell = document.getElementById('notif-bell');
+  const notifDropdown = document.getElementById('notif-dropdown');
+  notifBell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    notifDropdown.style.display = notifDropdown.style.display === 'block' ? 'none' : 'block';
+  });
+  notifDropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Clear all
+    if (e.target.closest('#notif-clear-all')) {
+      if (clearAllNotifications()) { saveToFirestore(); renderList(); }
+      renderNotifications();
+      return;
+    }
+    // Dismiss single without navigating
+    const dismissBtn = e.target.closest('[data-dismiss-id]');
+    if (dismissBtn) {
+      const id = dismissBtn.getAttribute('data-dismiss-id');
+      if (clearNotification(id)) { saveToFirestore(); renderList(); }
+      renderNotifications();
+      return;
+    }
+    // Open item and clear its notification
+    const item = e.target.closest('.notif-item');
+    if (!item) return;
+    const id = item.getAttribute('data-id');
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return;
+    clearNotification(id);
+    saveToFirestore();
+    state.activeTab = 'towatch';
+    // Keep "All" filter so the item is always visible; only switch if user is on exclusive filter
+    if (state.mediaFilter !== 'all' && state.mediaFilter !== (m.mediaType === 'series' ? 'series' : 'movie')) {
+      state.mediaFilter = 'all';
+    }
+    document.getElementById('media-filter').querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === state.mediaFilter));
+    renderTabs(); renderList(); renderNotifications();
+    notifDropdown.style.display = 'none';
+    openModal(id);
+  });
+  document.addEventListener('click', (e) => {
+    if (notifDropdown.style.display === 'block' && !notifDropdown.contains(e.target) && e.target !== notifBell) {
+      notifDropdown.style.display = 'none';
+    }
+  });
+
+  const authBoot = document.getElementById('auth-boot');
+  function hideAuthBoot() {
+    if (authBoot) authBoot.classList.add('hidden');
+  }
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      state.user = user;
+      authOverlay.classList.remove('visible');
+      authOverlay.classList.add('hidden');
+      hideAuthBoot();
+      appRoot.style.display = 'flex';
+      updateUserBar();
+      state.apiKeyFromCloud = false;
+      state.omdbKeyFromCloud = false;
+      await loadFromFirestore();
+      if (!state.apiKeyFromCloud) {
+        // Cloud had no saved key

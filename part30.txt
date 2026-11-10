@@ -1,0 +1,100 @@
+ener('change', () => {
+    const v = regionCustom.value.trim().toUpperCase();
+    if (v.length === 2) { state.region = v; saveToFirestore(); }
+  });
+
+  document.getElementById('settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    apiKeyPanel.classList.toggle('open');
+  });
+  document.getElementById('save-key-btn').addEventListener('click', () => {
+    state.apiKey = apiKeyInput.value.trim(); saveApiKey(state.apiKey); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
+    maybeAutoSuggest();
+  });
+  document.getElementById('clear-key-btn').addEventListener('click', () => {
+    state.apiKey = ''; apiKeyInput.value = ''; saveApiKey(''); updateKeyStatus();
+    state.apiKeyFromCloud = true;
+    saveToFirestore(true);
+    state.suggestions = []; state.suggestState = 'idle';
+    renderSuggestPanel();
+  });
+
+  document.getElementById('omdb-settings-toggle').addEventListener('click', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    omdbKeyPanel.classList.toggle('open');
+  });
+  document.getElementById('save-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = omdbKeyInput.value.trim(); saveOmdbKey(state.omdbKey); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
+    backfillImdbRatings();
+    if (state.suggestions.length) attachImdbRatingsToSuggestions();
+  });
+  document.getElementById('clear-omdb-key-btn').addEventListener('click', () => {
+    state.omdbKey = ''; omdbKeyInput.value = ''; saveOmdbKey(''); updateOmdbKeyStatus();
+    state.omdbKeyFromCloud = true;
+    saveToFirestore(true);
+  });
+
+  async function doSearch(title) {
+    hideSuggestions();
+    state.lastQuery = title; state.searchState = 'loading'; state.searchCandidates = []; state.personSearchName = ''; renderResult();
+    try {
+      const candidates = await fetchSearchCandidates(title);
+      if (!candidates.length) {
+        state.searchResult = { title, year: '', mediaType: 'movie', summary: "Couldn't find this title or person.", posterLink: '', platforms: [], tmdbId: null };
+        state.searchState = 'result';
+      } else if (candidates.length === 1 && candidates[0].mediaType === 'person') {
+        // Single person match — load their filmography directly
+        await loadPersonFilmography(candidates[0].tmdbId, candidates[0].title);
+        return;
+      } else if (candidates.length === 1) {
+        // Only one title match — no ambiguity, so go straight to the result card.
+        state.searchResult = await buildResultFromCandidate(candidates[0], state.region);
+        state.searchState = 'result';
+      } else {
+        // Several matches (titles and/or people) — let the user pick.
+        await ensureGenreMaps();
+        state.searchCandidates = candidates;
+        state.searchState = 'choices';
+      }
+    } catch (err) {
+      console.error(err);
+      state.errorMsg = friendlySearchError(err);
+      state.searchState = 'error';
+    }
+    renderResult();
+  }
+
+  async function chooseSearchCandidate(idx) {
+    const cand = state.searchCandidates[idx];
+    if (!cand) return;
+    // Person row → load their filmography as a new choice list
+    if (cand.mediaType === 'person') {
+      state.searchState = 'loading'; renderResult();
+      try {
+        await loadPersonFilmography(cand.tmdbId, cand.title);
+      } catch (err) {
+        console.error(err);
+        state.errorMsg = friendlySearchError(err);
+        state.searchState = 'error';
+        renderResult();
+      }
+      return;
+    }
+    state.searchState = 'loading'; renderResult();
+    try {
+      state.searchResult = await buildResultFromCandidate(cand, state.region);
+      state.searchState = 'result';
+    } catch (err) {
+      console.error(err);
+      state.errorMsg = friendlySearchError(err);
+      state.searchState = 'error';
+    }
+    renderResult();
+  }
+
+  // Load a person's movie + TV credits and present them as search choices
+  async function loadP

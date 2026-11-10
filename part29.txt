@@ -1,0 +1,82 @@
+ (m.mediaType === 'series') {
+      ctx.fillStyle = '#E8B94D'; ctx.font = '700 12px Inter, sans-serif';
+      const sw = ctx.measureText('SERIES').width + 14;
+      roundRectPath(ctx, textX, ty, sw, 20, 5); ctx.fill();
+      ctx.fillStyle = '#16213e'; ctx.fillText('SERIES', textX + 7, ty + 14);
+      ty += 32;
+    }
+    if (m.imdbRating) {
+      ctx.font = '700 14px Inter, sans-serif';
+      const badgeText = 'IMDb ' + m.imdbRating;
+      const bw = ctx.measureText(badgeText).width + 16;
+      ctx.fillStyle = '#E8B94D';
+      roundRectPath(ctx, textX, ty, bw, 24, 6); ctx.fill();
+      ctx.fillStyle = '#1A1500';
+      ctx.fillText(badgeText, textX + 8, ty + 17);
+      ty += 36;
+    } else {
+      ty += 8;
+    }
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('GENRE', textX, ty); ty += 8;
+    const genres = (m.genres && m.genres.length) ? m.genres.slice(0, 4) : ['Not available'];
+    ty = drawChips(ctx, genres, textX, ty, textWidth, 13, '#E8B94D', 'rgba(232,185,77,0.14)') + 6;
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('WHERE TO WATCH', textX, ty); ty += 8;
+    const platformChips = (m.platforms && m.platforms.length) ? m.platforms.slice(0, 4).map(platformChipLabel) : ['No availability found'];
+    ty = drawChips(ctx, platformChips, textX, ty, textWidth, 13, '#7FB3D5', 'rgba(127,179,213,0.14)');
+
+    ctx.fillStyle = '#9AA0BE'; ctx.font = '400 12px Inter, sans-serif';
+    ctx.fillText('Shared from Marquee', textX, height - 18);
+    return canvas;
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      try { canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob returned nothing')), 'image/png'); }
+      catch (e) { reject(e); }
+    });
+  }
+
+  async function shareCanvasAsPng(canvas, filename, shareTitle) {
+    let blob;
+    try { blob = await canvasToPngBlob(canvas); }
+    catch (e) { console.error(e); alert("Couldn't generate the image. Please try again."); return; }
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: shareTitle }); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; /* otherwise fall through to download */ }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    alert('Image saved! Attach it from your downloads/gallery in WhatsApp, Instagram, etc.');
+  }
+
+  async function shareCurrentList() {
+    const tab = state.activeTab === 'watched' ? 'watched' : 'towatch';
+    const hasItems = state.movies.some(m => m.status === tab && (state.mediaFilter === 'all' || (m.mediaType || 'movie') === state.mediaFilter));
+    if (!hasItems) { alert('This list is empty — add something first!'); return; }
+    const btn = document.getElementById('share-list-btn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    try {
+      const canvas = await renderListToCanvas(tab, state.mediaFilter);
+      await shareCanvasAsPng(canvas, 'marquee-' + tab + '.png', 'My Marquee list');
+    } finally { if (btn) { btn.disabled = false; btn.innerHTML = '📤 Share'; } }
+  }
+
+  async function shareMovie(m) {
+    await shareCanvasAsPng(await renderMovieToCanvas(m), 'marquee-' + m.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.png', m.title);
+  }
+
+  document.getElementById('share-list-btn').addEventListener('click', shareCurrentList);
+
+  regionSelect.addEventListener('change', () => {
+    if (regionSelect.value === 'Other') { regionCustom.style.display = 'inline-block'; regionCustom.focus(); }
+    else { regionCustom.style.display = 'none'; state.region = regionSelect.value; saveToFirestore(); }
+  });
+  regionCustom.addEventList
