@@ -12,20 +12,25 @@
   <script>
   (async function () {
     var boot = document.getElementById('boot');
+    var n = 34;
     try {
-      var url = 'https://raw.githubusercontent.com/dyash63/marquee/backup/pre-update-20261110-2316/index.html?t=' + Date.now();
-      var r = await fetch(url, { cache: 'no-store' });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      var html = await r.text();
-      if (!html || html.indexOf('marquee-app') === -1) throw new Error('Bad payload');
+      var parts = await Promise.all(
+        Array.from({ length: n }, function (_, i) {
+          var name = 'part' + String(i).padStart(2, '0') + '.txt';
+          return fetch(name + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+            if (!r.ok) throw new Error(name + ' HTTP ' + r.status);
+            return r.text();
+          });
+        })
+      );
+      var html = parts.join('');
+      if (html.indexOf('marquee-app') === -1) throw new Error('Bad reconstruct');
       document.open();
       document.write(html);
       document.close();
     } catch (e) {
       console.error(e);
-      if (boot) {
-        boot.innerHTML = 'Failed to load Marquee.<br><a href="https://github.com/dyash63/marquee" style="color:#E8B94D">Open repo</a><br><small style="opacity:.7">' + String(e && e.message || e) + '</small>';
-      }
+      if (boot) boot.innerHTML = 'Failed to load Marquee.<br><small>' + String(e && e.message || e) + '</small>';
     }
   })();
   </script>
