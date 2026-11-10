@@ -1,1 +1,73 @@
-placeholder-removed
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Marquee — find it, watch it, track it. Personal movie & series watchlist." />
+  <title>Marquee</title>
+
+  <!-- PWA: manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- PWA: theme color (browser chrome / status bar) -->
+  <meta name="theme-color" content="#12162A" />
+
+  <!-- iOS / Safari standalone app support -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Marquee" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
+
+  <!-- Icons (Android / desktop / favicon) -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+  :root {
+    --bg: #12162A; --bg-elevated: #1B2038; --card-border: #33395C;
+    --gold: #E8B94D; --gold-dim: rgba(232, 185, 77, 0.14); --red-stamp: #C1443D;
+    --text: #F3F1EA; --text-muted: #9AA0BE;
+    --stream: #E8B94D; --rent: #7FB3D5; --buy: #B7BCD6; --free: #7FC29B;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    min-height: 100%;
+  }
+  #marquee-app {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: calc(28px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    display: flex;
+    justify-content: center;
+  }
+  #marquee-app .wrap { width: 100%; max-width: 440px; position: relative; }
+  .mq-header { text-align: center; margin-bottom: 24px; }
+  .bulbs { display: flex; justify-content: center; gap: 7px; margin-bottom: 10px; }
+  .bulbs span { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); opacity: 0.35; animation: twinkle 2.6s ease-in-out infinite; }
+  .bulbs span:nth-child(odd) { animation-delay: 0.3s; }
+  .bulbs span:nth-child(3n) { animation-delay: 0.9s; }
+  .bulbs span:nth-child(4n) { animation-delay: 1.4s; }
+  @keyframes twinkle { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+  .mq-logo { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 6px; color: var(--gold); line-height: 1; margin: 0; }
+  .mq-tagline { color: var(--text-muted); font-size: 13px; margin: 6px 0 0; }
+  .search-row { display: flex; gap: 8px; }
+  .input-wrap { position: relative; flex: 1; }
+  .suggestions-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; z-index: 20; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+  .suggestion-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 14px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--card-border); }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:active { background: var(--gold-dim); }
+  .suggestion-title { font-size: 14px; }
+  .suggestion-genre { font-size: 10px; color: var(--gold); letter-spacing: 0.3px; text-transform: uppercase; }
+  .suggestion-loading { padding: 10px 14px; font-size: 13px; color: var(--text-muted); }
+  .genre-tag { di
