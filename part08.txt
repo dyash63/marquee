@@ -1,0 +1,84 @@
+n type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12px; font-size:12px;">Save key</button>
+            <button type="button" class="icon-btn" id="clear-omdb-key-btn">Clear</button>
+            <span id="omdb-key-status" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+          <p class="api-key-hint">
+            1. Request a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com/apikey.aspx</a> (choose the FREE tier)<br/>
+            2. Confirm it via the email OMDb sends you<br/>
+            3. Paste the key here. Stored only in your browser. Used to look up IMDb ratings for titles already found via TMDB.
+          </p>
+        </div>
+      </div>
+    </form>
+    <div id="result-area"></div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
+      <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
+      <button class="tab-btn" data-tab="suggested" id="tab-suggested">🎬 Suggested</button>
+    </div>
+    <div class="media-filter" id="media-filter">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="movie">Movies</button>
+      <button class="filter-btn" data-filter="series">Series</button>
+    </div>
+    <div class="list-search-row" id="list-search-row">
+      <div class="list-search-share-flex">
+        <input type="text" id="list-search" placeholder="Search your list…" autocomplete="off" />
+        <button type="button" class="icon-btn share-btn" id="share-list-btn" title="Share this list as an image">📤 Share</button>
+      </div>
+    </div>
+    <div class="suggest-panel" id="suggest-panel" style="display:none;">
+      <div class="suggest-header" id="suggest-toggle">
+        <span class="suggest-title">Suggested for you<span class="suggest-count" id="suggest-count"></span></span>
+        <span class="suggest-header-actions">
+          <button type="button" class="icon-btn" id="suggest-refresh-btn">Refresh</button>
+        </span>
+      </div>
+      <div id="suggest-body"></div>
+    </div>
+    <div id="storage-banner"></div>
+    
+    <div id="tag-chips" class="tag-chips" style="display:none;"></div>
+    <div id="recent-section" class="recent-section" style="display:none;"></div>
+    <p class="search-hint" id="search-hint">Press <kbd>/</kbd> to search · arrows to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close</p>
+    <div id="list"></div>
+
+    <p class="footer-credit">Crafted by DesaiX</p>
+    <!-- Details modal -->
+    <div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+      <div class="modal" id="modal" tabindex="-1">
+        <div class="modal-header">
+          <img class="modal-poster" id="modal-poster" alt="" />
+          <div class="modal-header-text">
+            <h2 class="modal-title" id="modal-title"></h2>
+            <p class="modal-meta" id="modal-meta"></p>
+            <div id="modal-genres"></div>
+          </div>
+          <button type="button" class="modal-close" id="modal-close" aria-label="Close">×</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<script>
+
+(function () {
+  const firebaseConfig = {
+    apiKey: "AIzaSyB1GY5r7fvUBgNcPif_vjULyf1Nz-izErQ",
+    authDomain: "marquee-b5cc8.firebaseapp.com",
+    projectId: "marquee-b5cc8",
+    storageBucket: "marquee-b5cc8.firebasestorage.app",
+    messagingSenderId: "762258886139",
+    appId: "1:762258886139:web:55d2047e4a95707e0e0f5e",
+    measurementId: "G-FKMBBESB3F"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+  const STORAGE_PREFIX = 'marquee_';
+  const TMDB_BASE = 'https://api.themoviedb.org/3';
+  const TMDB_IMG = 'https://image.tmdb.

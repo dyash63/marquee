@@ -1,0 +1,69 @@
+C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <p class="auth-error" id="auth-error" style="display:none;"></p>
+  </div>
+</div>
+<div id="marquee-app" style="display:none;">
+  <div class="wrap">
+    <div class="mq-header">
+      <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <p class="mq-logo">MARQUEE</p>
+      <p class="mq-tagline">Find it, watch it, track it.</p>
+    </div>
+    <div class="notif-wrap">
+      <button type="button" class="notif-bell" id="notif-bell" aria-label="Notifications">
+        🔔<span class="notif-count" id="notif-count" style="display:none;">0</span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown" style="display:none;"></div>
+    </div>
+    <div class="user-bar" id="user-bar">
+      <div class="user-info">
+        <span class="user-name" id="user-name">Signed in</span>
+      </div>
+      <button type="button" class="logout-btn" id="logout-btn">Sign out</button>
+    </div>
+    <form id="search-form">
+      <div class="search-row">
+        <div class="input-wrap">
+          <input id="movie-input" type="text" placeholder="Search movie, series, or actor…" autocomplete="off" />
+          <div id="suggestions" class="suggestions-dropdown"></div>
+        </div>
+        <button type="submit" class="find-btn" id="find-btn">Find it</button>
+      </div>
+      <div class="region-row">
+        <span>Availability in</span>
+        <select id="region-select">
+          <option value="IN">India</option>
+          <option value="US">United States</option>
+          <option value="GB">United Kingdom</option>
+          <option value="CA">Canada</option>
+          <option value="AU">Australia</option>
+          <option value="Other">Other…</option>
+        </select>
+        <input id="region-custom" class="region-custom" type="text" placeholder="ISO code e.g. DE" maxlength="2" style="display:none; width:90px;" />
+      </div>
+      <div class="settings-row" id="settings-row" style="display:none;">
+        <button type="button" class="settings-toggle" id="settings-toggle">TMDB API key (free)</button>
+        <div class="api-key-panel" id="api-key-panel">
+          <label for="api-key-input">TMDB API key — free, no credit card</label>
+          <input id="api-key-input" type="password" placeholder="Your TMDB v3 API key" autocomplete="off" />
+          <div class="api-key-actions">
+            <button type="button" class="btn filled" id="save-key-btn" style="padding:6px 12px; font-size:12px;">Save key</button>
+            <button type="button" class="icon-btn" id="clear-key-btn">Clear</button>
+            <span id="key-status" style="font-size:12px; color:var(--text-muted);"></span>
+          </div>
+          <p class="api-key-hint">
+            1. Create a free account at <a href="https://www.themoviedb.org/signup" target="_blank" rel="noopener">themoviedb.org</a><br/>
+            2. Go to <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Settings → API</a> and request a key (choose “Developer”)<br/>
+            3. Paste the <strong>API Key (v3 auth)</strong> here. Stored only in your browser.
+          </p>
+        </div>
+      </div>
+      <div class="settings-row" id="omdb-settings-row" style="display:none;">
+        <button type="button" class="settings-toggle" id="omdb-settings-toggle">IMDb ratings — free OMDb key</button>
+        <div class="api-key-panel" id="omdb-key-panel">
+          <label for="omdb-key-input">OMDb API key — free, shows real IMDb ratings</label>
+          <input id="omdb-key-input" type="password" placeholder="Your OMDb API key" autocomplete="off" />
+          <div class="api-key-actions">
+            <butto
