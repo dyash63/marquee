@@ -1,0 +1,84 @@
+etElementById('tag-chips');
+    if (!el) return;
+    if (state.activeTab === 'suggested') { el.style.display = 'none'; return; }
+    const counts = new Map();
+    state.movies.filter(m => m.status === state.activeTab && matchesMediaFilter(m)).forEach(m => {
+      (m.genres || []).forEach(g => {
+        const key = String(g);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      });
+    });
+    const tags = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 12);
+    if (!tags.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'flex';
+    el.innerHTML = '<button type="button" class="tag-chip' + (!state.tagFilter ? ' active' : '') + '" data-tag="">All genres</button>' +
+      tags.map(([g, c]) => '<button type="button" class="tag-chip' + (state.tagFilter === g ? ' active' : '') + '" data-tag="' + escapeHtml(g) + '">' + escapeHtml(g) + ' · ' + c + '</button>').join('');
+  }
+
+  function renderRecentSection() {
+    const el = document.getElementById('recent-section');
+    if (!el) return;
+    if (state.activeTab === 'suggested' || state.listSearchQuery.trim() || state.tagFilter) {
+      el.style.display = 'none'; return;
+    }
+    const recent = state.recentViews.length ? state.recentViews : loadRecentViews();
+    state.recentViews = recent;
+    if (!recent.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'block';
+    el.innerHTML = '<p class="recent-title">Recently viewed</p><div class="recent-list">' +
+      recent.slice(0, 5).map(r => {
+        const poster = isValidLink(r.posterLink) ? '<img class="r-poster" src="' + escapeHtml(r.posterLink) + '" alt="" />' : '<div class="r-poster"></div>';
+        return '<button type="button" class="recent-item" data-recent-id="' + escapeHtml(r.id) + '">' + poster +
+          '<span class="r-title">' + escapeHtml(r.title) + (r.year ? ' (' + escapeHtml(r.year) + ')' : '') + '</span></button>';
+      }).join('') + '</div>';
+  }
+
+  function openModal(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie) return;
+    state.modalId = id;
+    trackRecentView(movie);
+    const backdrop = document.getElementById('modal-backdrop');
+    const modal = document.getElementById('modal');
+    const titleEl = document.getElementById('modal-title');
+    const metaEl = document.getElementById('modal-meta');
+    const genresEl = document.getElementById('modal-genres');
+    const bodyEl = document.getElementById('modal-body');
+    const posterEl = document.getElementById('modal-poster');
+    titleEl.textContent = movie.title || '';
+    const metaParts = [];
+    if (movie.year) metaParts.push(String(movie.year));
+    metaParts.push(movie.mediaType === 'series' ? 'Series' : 'Movie');
+    if (movie.imdbRating) metaParts.push('IMDb ' + movie.imdbRating);
+    metaEl.textContent = metaParts.join(' · ');
+    genresEl.innerHTML = (movie.genres && movie.genres.length) ? genreTagsHtml(movie.genres) : '';
+    if (isValidLink(movie.posterLink)) {
+      posterEl.src = movie.posterLink;
+      posterEl.style.display = '';
+    } else {
+      posterEl.removeAttribute('src');
+      posterEl.style.display = 'none';
+    }
+    bodyEl.innerHTML = '';
+    if (movie.summary) {
+      const p = document.createElement('p');
+      p.className = 'details-summary';
+      p.textContent = movie.summary;
+      bodyEl.appendChild(p);
+    }
+    const platforms = movie.platforms || [];
+    if (platforms.length) {
+      const pdiv = document.createElement('div');
+      pdiv.className = 'modal-platforms';
+      platforms.forEach(p => {
+        const span = document.createElement('span');
+        span.className = 'pill ' + (p.type || '');
+        span.textContent = p.name || '';
+        pdiv.appendChild(span);
+      });
+      bodyEl.appendChild(pdiv);
+    } else {
+      const none = document.createElement('p');
+      none.style.color = 'var(--text-muted)';
+      none.style.fontSize = '13px';
+      none.tex

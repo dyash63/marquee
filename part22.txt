@@ -1,0 +1,49 @@
+a.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>' +
+          '<button class="icon-btn" data-action="dismiss-update" data-id="' + m.id + '">Got it</button></div>';
+      }
+      let detailsHtml = '';
+      const isOpen = expandedIds.has(m.id);
+      if (isOpen) {
+        // Cast line — top 6 names only, one line, no character roles (keeps panel readable)
+        let castHtml = '';
+        if (m.castLoading) castHtml = '<p class="details-cast details-loading">Loading cast…</p>';
+        else if (m.cast && m.cast.length) castHtml = '<p class="details-cast"><strong>Cast</strong> · ' + m.cast.map(n => escapeHtml(n)).join(', ') + '</p>';
+        else if (m.cast && m.cast.length === 0) castHtml = ''; // fetched but empty — skip
+
+        if (m.mediaType === 'series') {
+          if (m.seasonDetailsLoading) detailsHtml = '<div class="details-panel">' + castHtml + '<div class="details-loading">Checking episode guide…</div></div>';
+          else if (m.seasonDetails) {
+            const seasonsListHtml = (m.seasonDetails.seasons && m.seasonDetails.seasons.length)
+              ? '<ul class="season-list">' + m.seasonDetails.seasons.map(s => '<li>Season ' + escapeHtml(String(s.season)) + ' — ' + escapeHtml(String(s.episodes)) + ' episodes</li>').join('') + '</ul>'
+              : '<p class="details-empty">No season breakdown found.</p>';
+            detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '') + castHtml + seasonsListHtml +
+              '<p class="next-episode">📅 ' + escapeHtml(m.seasonDetails.nextEpisode || 'No schedule info found.') + '</p>' +
+              '<button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Refresh</button></div>';
+          } else {
+            detailsHtml = '<div class="details-panel">' + castHtml + (state.apiKey && m.tmdbId
+              ? '<p class="details-empty">Couldn\'t load episode details.</p><button class="icon-btn" data-action="refresh-details" data-id="' + m.id + '">Try again</button>'
+              : '<p class="details-empty">Add a TMDB API key and re-search this title to load episode details.</p>') + '</div>';
+          }
+        } else {
+          detailsHtml = '<div class="details-panel">' + (m.summary ? '<p class="details-summary">' + escapeHtml(m.summary) + '</p>' : '') + castHtml +
+            (!m.summary && !castHtml ? '<p class="details-empty">No extra details available.</p>' : '') + '</div>';
+        }
+      }
+      const posterImgHtml = isValidLink(m.posterLink) ? '<img class="t-poster" src="' + escapeHtml(m.posterLink) + '" alt="" />' : '<div class="t-poster"></div>';
+      const genresHtml = (m.genres && m.genres.length) ? '<p class="t-genres">' + genreTagsHtml(m.genres, 'small') + '</p>' : '';
+      const titleHtml = tokens.length ? highlightText(m.title, tokens) : escapeHtml(m.title);
+      const idx = items.indexOf(m);
+      const kbClass = (state.kbIndex === idx) ? ' kb-focused' : '';
+      return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + kbClass + '" data-ticket-id="' + m.id + '" data-kb-index="' + idx + '" tabindex="0" role="button" aria-label="' + escapeHtml(m.title) + '">' + posterImgHtml + '<div class="stub">' + (m.year || '—') + '</div><div class="body">' +
+        '<p class="t-title" data-action="open-modal" data-id="' + m.id + '">' +
+        '<span class="t-title-text">' + titleHtml + typeTagHtml(m.mediaType) + '</span>' +
+        '<span class="t-title-meta">' + imdbBadgeHtml(m.imdbRating) + '<span class="caret">' + (isOpen ? '▾' : '▸') + '</span></span></p>' +
+        genresHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions +
+        '<button class="icon-btn" data-action="toggle-details" data-id="' + m.id + '" title="Expand inline">Inline</button></div></div></div>';
+    }).join('');
+    renderTagChips();
+    renderRecentSection();
+  }
+
+  function renderTagChips() {
+    const el = document.g

@@ -1,0 +1,63 @@
+te.movies.filter(m => m.status === 'watched').length + ')';
+    tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
+    tabWatched.classList.toggle('active', state.activeTab === 'watched');
+    tabSuggested.classList.toggle('active', state.activeTab === 'suggested');
+    const isSuggested = state.activeTab === 'suggested';
+    mediaFilterEl.style.display = isSuggested ? 'none' : 'flex';
+    listSearchRowEl.style.display = isSuggested ? 'none' : 'block';
+    listEl.style.display = isSuggested ? 'none' : 'flex';
+    suggestPanelEl.style.display = isSuggested ? 'block' : 'none';
+    if (isSuggested) {
+      const libraryCount = state.movies.filter(m => m.tmdbId).length;
+      if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+        generateSuggestions();
+      } else {
+        renderSuggestPanel();
+      }
+    }
+  }
+
+  function matchesMediaFilter(m) {
+    if (state.mediaFilter === 'all') return true;
+    return (m.mediaType || 'movie') === state.mediaFilter;
+  }
+  function typeTagHtml(mediaType) {
+    return mediaType === 'series'
+      ? ' <span class="series-tag">SERIES</span>'
+      : ' <span class="movie-tag">MOVIE</span>';
+  }
+
+  function renderList() {
+    const tokens = tokenizeQuery(state.listSearchQuery);
+    const tag = (state.tagFilter || '').toLowerCase();
+    let pool = state.movies.filter(m => m.status === state.activeTab && matchesMediaFilter(m));
+    if (tag) pool = pool.filter(m => (m.genres || []).some(g => String(g).toLowerCase() === tag));
+    const scored = pool.map(m => {
+      const r = scoreMovieAgainstQuery(m, tokens);
+      return { m, score: r.score, matched: r.matched };
+    }).filter(x => x.matched);
+    scored.sort((a, b) => b.score - a.score || String(a.m.title||'').localeCompare(String(b.m.title||'')));
+    const items = scored.map(x => x.m);
+    state.kbIndex = items.length ? Math.min(Math.max(state.kbIndex, 0), items.length - 1) : -1;
+    if (!items.length) {
+      const filterWord = state.mediaFilter === 'series' ? 'series' : (state.mediaFilter === 'movie' ? 'movies' : 'titles');
+      if (tokens.length || state.tagFilter) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim() || state.tagFilter) + '”.</div>'; return; }
+      listEl.innerHTML = state.activeTab === 'towatch'
+        ? '<div class="empty-state">Your marquee is empty.<br/>Search above to add ' + filterWord + '.</div>'
+        : '<div class="empty-state">Nothing watched yet.<br/>Once you finish one, mark it here.</div>';
+      return;
+    }
+    listEl.innerHTML = items.map(m => {
+      const pills = (m.platforms && m.platforms.length)
+        ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
+        : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
+      const actions = (m.status === 'towatch'
+        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
+        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
+        + '<button class="icon-btn" data-action="share" data-id="' + m.id + '" title="Share as image">📤</button>';
+      let updateBannerHtml = '';
+      if (m.hasUpdate) {
+        const detail = m.updateDetail || m.latestKnown || 'a new episode/season';
+        const waText = encodeURIComponent('🎬 ' + m.title + ' just dropped: ' + detail + '!');
+        updateBannerHtml = '<div class="update-banner"><span>🆕 New today: ' + escapeHtml(detail) + '</span>' +
+          '<a class="icon-btn whatsapp-btn" href="https://w

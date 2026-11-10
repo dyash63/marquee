@@ -1,0 +1,89 @@
+tContent = 'No availability found for this region.';
+      bodyEl.appendChild(none);
+    }
+    if (movie.cast && movie.cast.length) {
+      const p = document.createElement('p');
+      p.className = 'details-cast';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Cast';
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(' · ' + movie.cast.join(', ')));
+      bodyEl.appendChild(p);
+    } else if (movie.castLoading) {
+      const p = document.createElement('p');
+      p.className = 'details-cast';
+      p.textContent = 'Cast · Loading…';
+      bodyEl.appendChild(p);
+    }
+    if (movie.mediaType === 'series') {
+      if (movie.seasonDetailsLoading) {
+        const d = document.createElement('div');
+        d.className = 'details-loading';
+        d.textContent = 'Checking episode guide…';
+        bodyEl.appendChild(d);
+      } else if (movie.seasonDetails) {
+        if (movie.seasonDetails.seasons && movie.seasonDetails.seasons.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'season-list';
+          movie.seasonDetails.seasons.forEach(s => {
+            const li = document.createElement('li');
+            li.textContent = 'Season ' + s.season + ' — ' + s.episodes + ' episodes';
+            ul.appendChild(li);
+          });
+          bodyEl.appendChild(ul);
+        }
+        const next = document.createElement('p');
+        next.className = 'next-episode';
+        next.textContent = '📅 ' + (movie.seasonDetails.nextEpisode || 'No schedule info found.');
+        bodyEl.appendChild(next);
+      }
+    }
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    function makeBtn(label, action, primary) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'icon-btn' + (primary ? ' primary' : '');
+      b.textContent = label;
+      b.setAttribute('data-action', action);
+      b.setAttribute('data-id', movie.id);
+      return b;
+    }
+    if (movie.status === 'towatch') actions.appendChild(makeBtn('Mark watched', 'watched', true));
+    else actions.appendChild(makeBtn('Move to watchlist', 'towatch', false));
+    actions.appendChild(makeBtn('Share', 'share', false));
+    actions.appendChild(makeBtn('Remove', 'remove', false));
+    bodyEl.appendChild(actions);
+
+    if (state.apiKey && movie.tmdbId) {
+      if (movie.mediaType === 'series' && !movie.seasonDetails && !movie.seasonDetailsLoading) fetchSeasonDetails(id);
+      if (!movie.cast && !movie.castLoading) fetchCredits(id);
+    }
+
+    lastFocusedBeforeModal = document.activeElement;
+    backdrop.hidden = false;
+    requestAnimationFrame(function () {
+      backdrop.classList.add('open');
+      document.body.classList.add('modal-open');
+      var closeBtn = document.getElementById('modal-close');
+      if (closeBtn) closeBtn.focus();
+    });
+    var hash = '#item-' + encodeURIComponent(id);
+    if (location.hash !== hash) history.pushState({ modalId: id }, '', hash);
+    if (modalFocusTrapHandler) document.removeEventListener('keydown', modalFocusTrapHandler, true);
+    modalFocusTrapHandler = function (e) {
+      if (!state.modalId) return;
+      if (e.key === 'Escape') { e.preventDefault(); closeModal(); return; }
+      if (e.key !== 'Tab') return;
+      var focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      var list = Array.prototype.filter.call(focusable, function (el) { return !el.disabled && el.offsetParent !== null; });
+      if (!list.length) return;
+      var first = list[0], last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', modalFocusTrapHandler, true);
+    renderRecentSection();
+  }
+
+  function closeModal(skipHash) 
