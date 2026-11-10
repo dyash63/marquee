@@ -1,0 +1,86 @@
+esterday)) { newRelease = true; releaseDetail = 'S' + last.season_number + 'E' + last.episode_number; }
+      if (next && next.air_date && (next.air_date === todayStr || next.air_date === yesterday)) { newRelease = true; releaseDetail = 'S' + next.season_number + 'E' + next.episode_number; }
+      return { newRelease, releaseDetail, latestKnown };
+    } catch (e) { return null; }
+  }
+
+  async function establishSeriesBaseline(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie || movie.mediaType !== 'series' || movie.latestKnown || !movie.tmdbId || !state.apiKey) return;
+    const res = await checkOneSeriesLatest(movie);
+    const m2 = state.movies.find(mm => mm.id === id);
+    if (!m2 || !res) return;
+    if (res.latestKnown) m2.latestKnown = res.latestKnown;
+    if (res.newRelease) {
+      const wasWatched = m2.status === 'watched';
+      m2.hasUpdate = true;
+      m2.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+      if (wasWatched) m2.status = 'towatch';
+    }
+    saveToFirestore(); renderTabs(); renderList(); renderNotifications();
+  }
+
+  function renderNotifications() {
+    const countEl = document.getElementById('notif-count');
+    const dropdown = document.getElementById('notif-dropdown');
+    if (!countEl || !dropdown) return;
+    const updated = state.movies.filter(m => m.hasUpdate);
+    if (updated.length) { countEl.textContent = String(updated.length); countEl.style.display = 'flex'; }
+    else { countEl.style.display = 'none'; }
+    if (!updated.length) {
+      dropdown.innerHTML = '<div class="notif-empty">No new episodes or seasons yet.</div>';
+      return;
+    }
+    dropdown.innerHTML =
+      '<div class="notif-header"><span class="notif-header-label">' + updated.length + ' update' + (updated.length === 1 ? '' : 's') + '</span>' +
+        '<button type="button" class="notif-clear-all" id="notif-clear-all">Clear all</button></div>' +
+      updated.map(m => '<div class="notif-item" data-id="' + m.id + '">' +
+          '<span class="notif-title">🆕 ' + escapeHtml(m.title) + '</span>' +
+          '<span class="notif-detail">' + escapeHtml(m.updateDetail || m.latestKnown || 'New episode/season') + '</span>' +
+          '<button type="button" class="notif-dismiss" data-dismiss-id="' + m.id + '" aria-label="Dismiss">×</button>' +
+          '</div>').join('');
+  }
+
+  function clearNotification(id) {
+    const m = state.movies.find(mm => mm.id === id);
+    if (!m) return false;
+    m.hasUpdate = false;
+    m.updateDetail = '';
+    return true;
+  }
+  function clearAllNotifications() {
+    let any = false;
+    state.movies.forEach(m => {
+      if (m.hasUpdate) { m.hasUpdate = false; m.updateDetail = ''; any = true; }
+    });
+    return any;
+  }
+
+  async function checkAllSeriesUpdates() {
+    if (!state.apiKey) return;
+    const seriesList = state.movies.filter(m => m.mediaType === 'series' && m.tmdbId);
+    if (!seriesList.length) { renderNotifications(); return; }
+    const results = await Promise.all(seriesList.map(m => checkOneSeriesLatest(m).then(res => ({ id: m.id, res }))));
+    let any = false;
+    results.forEach(({ id, res }) => {
+      if (!res) return;
+      const movie = state.movies.find(m => m.id === id);
+      if (!movie) return;
+      if (res.latestKnown) movie.latestKnown = res.latestKnown;
+      if (res.newRelease) {
+        const wasWatched = movie.status === 'watched';
+        movie.hasUpdate = true;
+        movie.updateDetail = (res.releaseDetail || res.latestKnown || 'New episode/season') + (wasWatched ? ' — moved back to To watch' : '');
+        if (wasWatched) movie.status = 'towatch';
+        any = true;
+      }
+    });
+    if (any) { saveToFirestore(); renderTabs(); renderList(); }
+    renderNotifications();
+  }
+
+  async function fetchSeasonDetails(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie) return;
+    movie.seasonDetailsLoading = true; renderList();
+    con

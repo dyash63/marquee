@@ -1,0 +1,80 @@
+st result = await getSeasonDetails(movie);
+    const m2 = state.movies.find(mm => mm.id === id);
+    if (!m2) return;
+    m2.seasonDetailsLoading = false;
+    if (result) { m2.seasonDetails = result; saveToFirestore(); }
+    renderList();
+  }
+
+  async function fetchCredits(id) {
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie || !movie.tmdbId || !state.apiKey || movie.cast || movie.castLoading) return;
+    movie.castLoading = true; renderList();
+    try {
+      const path = movie.mediaType === 'series' ? '/tv/' + movie.tmdbId + '/credits' : '/movie/' + movie.tmdbId + '/credits';
+      const data = await tmdbGet(path, { language: 'en-US' });
+      // Top-billed only — keep it short so the panel doesn't turn into a phone book
+      const top = (data.cast || []).slice(0, 6).map(c => c.name).filter(Boolean);
+      const m2 = state.movies.find(mm => mm.id === id);
+      if (m2) { m2.cast = top; m2.castLoading = false; saveToFirestore(); }
+    } catch (e) {
+      const m2 = state.movies.find(mm => mm.id === id);
+      if (m2) { m2.cast = []; m2.castLoading = false; }
+    }
+    renderList();
+  }
+
+  function toggleDetails(id) {
+    if (expandedIds.has(id)) { expandedIds.delete(id); renderList(); return; }
+    expandedIds.add(id); renderList();
+    const movie = state.movies.find(m => m.id === id);
+    if (!movie || !state.apiKey || !movie.tmdbId) return;
+    if (movie.mediaType === 'series' && !movie.seasonDetails && !movie.seasonDetailsLoading) fetchSeasonDetails(id);
+    if (!movie.cast && !movie.castLoading) fetchCredits(id);
+  }
+
+  function renderResult() {
+    if (state.searchState === 'idle') { resultArea.innerHTML = ''; return; }
+    if (state.searchState === 'loading') {
+      resultArea.innerHTML = '<div class="status-line"><div class="spinner"></div><span>Checking showtimes…</span></div>';
+      return;
+    }
+    if (state.searchState === 'error') {
+      resultArea.innerHTML = '<div class="error-box">' + escapeHtml(state.errorMsg) + '<div><button class="retry-btn" id="retry-btn">Try again</button></div></div>';
+      document.getElementById('retry-btn').addEventListener('click', () => doSearch(state.lastQuery));
+      return;
+    }
+    if (state.searchState === 'choices') {
+      const fromPerson = state.personSearchName;
+      const items = state.searchCandidates.map((c, i) => {
+        const isPerson = c.mediaType === 'person';
+        const imgBase = isPerson ? TMDB_IMG_THUMB : TMDB_IMG_THUMB;
+        const posterHtml = c.posterPath
+          ? '<img class="choice-poster" src="' + imgBase + c.posterPath + '" alt="" />'
+          : '<div class="choice-poster"></div>';
+        let metaParts;
+        if (isPerson) {
+          metaParts = ['Actor / actress'];
+          if (c.knownFor) metaParts.push(c.knownFor);
+        } else {
+          metaParts = [c.mediaType === 'series' ? 'Series' : 'Movie'];
+          const lang = languageName(c.language);
+          if (lang) metaParts.push(lang);
+          if (c.character) metaParts.push('as ' + c.character);
+          else {
+            const genreNames = genreNamesFromIds(c.genreIds, c.mediaType).slice(0, 2);
+            if (genreNames.length) metaParts.push(genreNames.join('/'));
+          }
+        }
+        return '<button type="button" class="choice-item" data-idx="' + i + '">' + posterHtml +
+          '<span class="choice-body"><span class="choice-title">' + escapeHtml(c.title) +
+          (c.year ? ' <span class="choice-year">(' + escapeHtml(c.year) + ')</span>' : '') +
+          (isPerson ? ' <span class="person-tag">ACTOR</span>' : typeTagHtml(c.mediaType)) +
+          '</span>' +
+          '<span class="choice-meta">' + escapeHtml(metaParts.join(' · ')) + '</span></span></button>';
+      }).join('');
+      const hint = fromPerson
+        ? 'Filmography of ' + escapeHtml(fromPerson) + ' — pick a title'
+        : 'Multiple matches — which one?';
+      resultArea.innerHTML = '<div class="choice-list"><p class="choice-hint">' + hint + '</p>' + items +
+   
