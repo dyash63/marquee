@@ -13,7 +13,7 @@
 // NOTE: bump CACHE_NAME any time you want to force every
 // already-installed copy of this service worker to drop its old cache —
 // the browser only re-installs a service worker when sw.js's own bytes change.
-const CACHE_NAME = 'marquee-static-v4';
+const CACHE_NAME = 'marquee-static-v5';
 
 const NETWORK_FIRST_URLS = ['./', './index.html', './app.js'];
 const CACHE_FIRST_URLS = [
@@ -55,8 +55,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  const isPart = /\/part\d{2}\.txt$/.test(url.pathname);
   const isNetworkFirst = NETWORK_FIRST_URLS.some((p) => url.pathname === resolvedPath(p))
-    || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/app.js');
+    || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/app.js') || isPart;
   const isCacheFirst = CACHE_FIRST_URLS.some((p) => url.pathname === resolvedPath(p));
 
   if (isNetworkFirst) {
