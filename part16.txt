@@ -1,0 +1,78 @@
+emaining === 1 ? '' : 's') + ' to To watch or Watched to unlock suggestions.</div>';
+      return;
+    }
+    if (state.suggestState === 'loading') {
+      body.innerHTML = '<div class="suggest-status"><div class="spinner"></div><span>Finding what to watch next…</span></div>';
+      return;
+    }
+    if (state.suggestState === 'error') {
+      body.innerHTML = '<div class="suggest-status">' + escapeHtml(state.suggestError || 'Could not load suggestions.') + '</div>';
+      return;
+    }
+    if (!state.suggestions.length) {
+      body.innerHTML = '<div class="suggest-empty">No fresh suggestions right now — hit refresh to try again.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="suggest-list">' + state.suggestions.map(s => {
+      const key = suggestionKey(s.mediaType, s.tmdbId);
+      const img = isValidLink(s.posterLink) ? '<img class="s-poster" src="' + escapeHtml(s.posterLink) + '" alt="" />' : '<div class="s-poster"></div>';
+      return '<div class="suggest-card">' + img +
+        '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + typeTagHtml(s.mediaType) + imdbBadgeHtml(s.imdbRating) + '</p>' +
+        '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
+        (s.genres && s.genres.length ? '<p class="s-genres">' + genreTagsHtml(s.genres, 'small') + '</p>' : '') +
+        '<p class="s-summary">' + escapeHtml(s.summary || 'No summary available.') + '</p>' +
+        '<div class="s-actions"><button class="btn filled" data-add="' + key + '">Add to watchlist</button><button class="icon-btn" data-dismiss="' + key + '">Not interested</button></div>' +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  // Returns TMDB's raw candidate matches for a query — title, year, media type,
+  // and original language for each, so the caller can show them for disambiguation
+  // rather than silently guessing at the top hit (which is often wrong for
+  // misspellings, or ambiguous for common titles that exist in several
+  // languages/years).
+  async function fetchSearchCandidatesRaw(query) {
+    const multi = await tmdbGet('/search/multi', { query, include_adult: 'false', language: 'en-US', page: 1 });
+    return (multi.results || [])
+      .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person')
+      .map(r => {
+        if (r.media_type === 'person') {
+          return {
+            tmdbId: r.id,
+            mediaType: 'person',
+            title: r.name || '',
+            year: '',
+            language: '',
+            posterPath: r.profile_path || '',
+            genreIds: [],
+            knownFor: r.known_for_department || 'Acting'
+          };
+        }
+        return {
+          tmdbId: r.id,
+          mediaType: r.media_type === 'tv' ? 'series' : 'movie',
+          title: r.media_type === 'tv' ? (r.name || '') : (r.title || ''),
+          year: yearFromDate(r.media_type === 'tv' ? r.first_air_date : r.release_date),
+          language: r.original_language || '',
+          posterPath: r.poster_path || '',
+          genreIds: r.genre_ids || []
+        };
+      })
+      .filter(c => c.title)
+      .slice(0, 10);
+  }
+
+  // TMDB's search is closer to prefix/substring matching than true fuzzy
+  // spelling correction — a single missing/extra letter anywhere in the query
+  // (e.g. "kaalakandi" for "Kaalakaandi") can return zero results even though
+  // a human would recognize it instantly. If the exact query comes up empty,
+  // retry against shorter prefixes of it: the part of the query typed
+  // correctly before the typo usually still lines up with the real title.
+  async function fetchSearchCandidates(title) {
+    const trimmed = title.trim();
+    let candidates = await fetchSearchCandidatesRaw(trimmed);
+    if (!candidates.length) {
+      const tried = new Set([trimmed.toLowerCase()]);
+      for (let len = trimmed.length - 1; len >= 4 && len >= trimmed.length - 3; len--) {
+        const prefix = trimmed.slice(0, len);
+        const key = prefix.toLowerCas

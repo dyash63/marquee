@@ -1,0 +1,83 @@
+cup, or a title that just isn't rated yet) means it gets
+          // retried on a future backfill instead of being permanently blank.
+          if (rating) m.imdbRating = rating;
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { imdbBackfillRunning = false; }
+  }
+  let genreBackfillRunning = false;
+  async function backfillGenres() {
+    if (!state.apiKey || genreBackfillRunning) return;
+    // Titles added before genre tags existed (or added via an older build)
+    // never got a `genres` array saved on them — fetch it once per title here
+    // so everything already in the library catches up, not just new adds.
+    const candidates = state.movies.filter(m => m.tmdbId && (!m.genres || !m.genres.length));
+    if (!candidates.length) return;
+    genreBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          try {
+            const detailPath = m.mediaType === 'series' ? '/tv/' + m.tmdbId : '/movie/' + m.tmdbId;
+            const detail = await tmdbGet(detailPath, { language: 'en-US' });
+            const genres = (detail.genres || []).map(g => g.name).filter(Boolean);
+            if (genres.length) m.genres = genres;
+          } catch (e) { /* skip — will retry on a future backfill */ }
+        }));
+        renderList();
+      }
+      saveToFirestore();
+    } finally { genreBackfillRunning = false; }
+  }
+  async function attachImdbRatingsToSuggestions() {
+    if (!state.omdbKey || !state.suggestions.length) return;
+    await Promise.all(state.suggestions.map(async (s) => {
+      s.imdbRating = await getImdbRating(s.mediaType, s.tmdbId);
+    }));
+    renderSuggestPanel();
+  }
+
+  // --- "Suggested for you" recommendation engine ---------------------------
+  // Built from titles already in the library (both To watch and Watched):
+  // for each library title we pull TMDB's own "recommendations" for it, then
+  // rank the combined results by how often + how prominently each candidate
+  // showed up across those calls, dropping anything already in the library or
+  // previously dismissed. Needs at least MIN_LIBRARY_FOR_SUGGESTIONS titles
+  // added before it will suggest anything.
+
+  function suggestionKey(mediaType, tmdbId) { return mediaType + ':' + tmdbId; }
+
+  function maybeAutoSuggest() {
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (state.apiKey && libraryCount >= MIN_LIBRARY_FOR_SUGGESTIONS && state.suggestState === 'idle' && !state.suggestions.length) {
+      generateSuggestions();
+    } else {
+      renderSuggestPanel();
+    }
+  }
+
+  async function generateSuggestions() {
+    const library = state.movies.filter(m => m.tmdbId);
+    if (!state.apiKey || library.length < MIN_LIBRARY_FOR_SUGGESTIONS) { renderSuggestPanel(); return; }
+    state.suggestState = 'loading'; state.suggestError = '';
+    renderSuggestPanel();
+    try {
+      await ensureGenreMaps();
+      const inLibrary = new Set(library.map(m => suggestionKey(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId)));
+      const dismissed = loadDismissedSuggestions();
+      // Cap how many library titles we fan out from, newest-added first, to keep this to a reasonable number of API calls.
+      const sources = library.slice(0, 8);
+      const scoreMap = new Map();
+      await Promise.all(sources.map(async (m) => {
+        const kind = m.mediaType === 'series' ? 'tv' : 'movie';
+        try {
+          const res = await tmdbGet('/' + kind + '/' + m.tmdbId + '/recommendations', { language: 'en-US', page: 1 });
+          (res.results || []).forEach((r, idx) => {
+            const mediaType = kind === 'tv' ? 'series' : 'movie';
+            const key = suggestionKey(mediaType, r.id);
+            if (inLibrary.has(key) || dismissed.has(key)) return;
+            const title = mediaType === 'series' ? (r.name || '') : (r.title |

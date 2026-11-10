@@ -1,0 +1,83 @@
+genreMapsLoaded = false, genreMapsLoading = null;
+  function ensureGenreMaps() {
+    if (genreMapsLoaded) return Promise.resolve();
+    if (genreMapsLoading) return genreMapsLoading;
+    genreMapsLoading = (async () => {
+      try {
+        const [movieG, tvG] = await Promise.all([
+          tmdbGet('/genre/movie/list', { language: 'en-US' }),
+          tmdbGet('/genre/tv/list', { language: 'en-US' })
+        ]);
+        (movieG.genres || []).forEach(g => { state.genreMap.movie[g.id] = g.name; });
+        (tvG.genres || []).forEach(g => { state.genreMap.series[g.id] = g.name; });
+        genreMapsLoaded = true;
+      } catch (e) { /* leave maps empty — genre tags just won't show until it succeeds later */ }
+    })();
+    return genreMapsLoading;
+  }
+  function genreNamesFromIds(ids, mediaType) {
+    const map = mediaType === 'series' ? state.genreMap.series : state.genreMap.movie;
+    return (ids || []).map(id => map[id]).filter(Boolean);
+  }
+  function genreTagsHtml(genres, extraClass) {
+    if (!genres || !genres.length) return '';
+    return genres.map(g => '<span class="genre-tag' + (extraClass ? ' ' + extraClass : '') + '">' + escapeHtml(g) + '</span>').join('');
+  }
+
+  // --- IMDb ratings (via OMDb) ----------------------------------------------
+  // TMDB doesn't expose real IMDb scores, so when an OMDb key is set we look
+  // up each title's IMDb id through TMDB (free, already-available data), then
+  // ask OMDb for the actual IMDb rating. Results are cached in-memory per
+  // tmdbId so a title is never looked up twice in one session.
+  async function omdbGetRating(imdbId) {
+    if (!state.omdbKey || !imdbId) return null;
+    try {
+      const url = new URL('https://www.omdbapi.com/');
+      url.searchParams.set('apikey', state.omdbKey.trim());
+      url.searchParams.set('i', imdbId);
+      const res = await fetch(url.toString());
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data && data.Response === 'True' && data.imdbRating && data.imdbRating !== 'N/A') return data.imdbRating;
+      return null;
+    } catch (e) { return null; }
+  }
+  async function getImdbRating(mediaType, tmdbId) {
+    if (!state.omdbKey || !tmdbId) return null;
+    const key = mediaType + ':' + tmdbId;
+    if (Object.prototype.hasOwnProperty.call(imdbCache, key)) return imdbCache[key];
+    try {
+      let imdbId = null;
+      if (mediaType === 'series') {
+        const ext = await tmdbGet('/tv/' + tmdbId + '/external_ids');
+        imdbId = ext.imdb_id || null;
+      } else {
+        const det = await tmdbGet('/movie/' + tmdbId, { language: 'en-US' });
+        imdbId = det.imdb_id || null;
+      }
+      const rating = imdbId ? await omdbGetRating(imdbId) : null;
+      imdbCache[key] = rating;
+      return rating;
+    } catch (e) { imdbCache[key] = null; return null; }
+  }
+  function imdbBadgeHtml(rating) {
+    return rating ? '<span class="imdb-badge">IMDb ' + escapeHtml(rating) + '</span>' : '';
+  }
+  let imdbBackfillRunning = false;
+  async function backfillImdbRatings() {
+    if (!state.omdbKey || imdbBackfillRunning) return;
+    // Treat both "never checked" (undefined) and "checked, came up empty"
+    // (null, saved by an older build before this was fixed) as retry
+    // candidates — a null here doesn't mean the title will never be rated,
+    // it just meant the last attempt failed or found nothing at the time.
+    const candidates = state.movies.filter(m => m.tmdbId && (m.imdbRating === undefined || m.imdbRating === null));
+    if (!candidates.length) return;
+    imdbBackfillRunning = true;
+    try {
+      const chunkSize = 4;
+      for (let i = 0; i < candidates.length; i += chunkSize) {
+        const chunk = candidates.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (m) => {
+          const rating = await getImdbRating(m.mediaType === 'series' ? 'series' : 'movie', m.tmdbId);
+          // Only persist an actual rating. Leaving it undefined on a miss (rate limit,
+          // network hic

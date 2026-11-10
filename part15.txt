@@ -1,0 +1,86 @@
+| '');
+            if (!title) return;
+            const weight = 1 - idx * 0.03;
+            const existing = scoreMap.get(key);
+            if (existing) existing.score += weight;
+            else scoreMap.set(key, {
+              score: weight,
+              data: {
+                tmdbId: r.id, mediaType, title,
+                year: yearFromDate(mediaType === 'series' ? r.first_air_date : r.release_date),
+                summary: (r.overview || '').trim(),
+                posterLink: r.poster_path ? TMDB_IMG + r.poster_path : '',
+                popularity: r.popularity || 0,
+                genres: genreNamesFromIds(r.genre_ids, mediaType).slice(0, 3)
+              }
+            });
+          });
+        } catch (e) { /* skip titles TMDB can't give recommendations for */ }
+      }));
+      state.suggestions = Array.from(scoreMap.values())
+        .sort((a, b) => (b.score - a.score) || (b.data.popularity - a.data.popularity))
+        .slice(0, 6)
+        .map(x => x.data);
+      state.suggestState = 'ready';
+      if (state.omdbKey) attachImdbRatingsToSuggestions();
+    } catch (e) {
+      console.error(e);
+      state.suggestState = 'error';
+      state.suggestError = friendlySearchError(e);
+    }
+    renderSuggestPanel();
+  }
+
+  function dismissSuggestion(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    state.suggestions.splice(idx, 1);
+    const dismissed = loadDismissedSuggestions();
+    dismissed.add(key);
+    saveDismissedSuggestions(dismissed);
+    renderSuggestPanel();
+  }
+
+  async function addSuggestionToWatchlist(key) {
+    const idx = state.suggestions.findIndex(s => suggestionKey(s.mediaType, s.tmdbId) === key);
+    if (idx === -1) return;
+    const s = state.suggestions[idx];
+    const addBtn = document.querySelector('#suggest-body [data-add="' + key + '"]');
+    if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+    let platforms = [];
+    try {
+      const kind = s.mediaType === 'series' ? 'tv' : 'movie';
+      const providers = await tmdbGet('/' + kind + '/' + s.tmdbId + '/watch/providers');
+      platforms = mapProviders(providers.results && providers.results[state.region]);
+    } catch (e) { /* leave platforms empty if lookup fails */ }
+    const finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    state.movies.unshift({
+      id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
+      mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
+      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
+      imdbRating: s.imdbRating || undefined, genres: s.genres || []
+    });
+    state.suggestions.splice(idx, 1);
+    saveToFirestore();
+    // Added quietly to To watch — deliberately doesn't touch state.activeTab/mediaFilter
+    // or scroll anywhere, so whatever the person is looking at stays put.
+    renderTabs(); renderList(); renderSuggestPanel();
+    if (s.mediaType === 'series') establishSeriesBaseline(finalId);
+  }
+
+  function renderSuggestPanel() {
+    const panel = document.getElementById('suggest-panel');
+    const body = document.getElementById('suggest-body');
+    const countEl = document.getElementById('suggest-count');
+    if (!panel || !body) return;
+    if (state.activeTab !== 'suggested') return;
+    panel.style.display = 'block';
+    countEl.textContent = state.suggestions.length ? ' (' + state.suggestions.length + ')' : '';
+    const libraryCount = state.movies.filter(m => m.tmdbId).length;
+    if (!state.apiKey) {
+      body.innerHTML = '<div class="suggest-empty">Add a TMDB API key above to get personalized suggestions.</div>';
+      return;
+    }
+    if (libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) {
+      const remaining = MIN_LIBRARY_FOR_SUGGESTIONS - libraryCount;
+      body.innerHTML = '<div class="suggest-empty">Add ' + remaining + ' more title' + (r
