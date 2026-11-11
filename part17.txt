@@ -82,4 +82,4 @@ e();
       const todayStr = new Date().toISOString().slice(0, 10);
       const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       let newRelease = false, releaseDetail = '';
-      if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) {
+      if (last && last.air_date && (last.air_date === todayStr || last.air_date === y
