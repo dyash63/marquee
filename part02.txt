@@ -11,19 +11,19 @@
   .result-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn { font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--gold); background: transparent; color: var(--text); }
   .btn.filled { background: var(--gold); color: #1A1500; border-color: var(--gold); }
-  .tabs { display: flex; margin-top: 26px; border-bottom: 1px solid var(--card-border); }
-  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 14px; font-weight: 600; padding: 10px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs { display: flex; margin-top: 20px; border-bottom: 1px solid rgba(232,185,77,0.15); }
+  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0.3px; padding: 12px 2px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease; }
   .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
-  .media-filter { display: flex; gap: 6px; margin-top: 10px; }
-  .list-search-row { margin-top: 10px; }
-  #list-search { width: 100%; min-height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--bg-elevated); color: var(--text); font-size: 16px; font-family: inherit; }
+  .media-filter { display: flex; gap: 8px; margin-top: 14px; }
+  .list-search-row { margin-top: 12px; }
+  #list-search { width: 100%; min-height: 42px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(232,185,77,0.2); background: var(--bg-elevated); color: var(--text); font-size: 15px; font-family: inherit; }
   #list-search::placeholder { color: var(--text-muted); }
-  #list-search:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
-  .filter-btn { background: var(--bg-elevated); border: 1px solid var(--card-border); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
-  .filter-btn.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
-  #list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-  .ticket { position: relative; display: flex; border: 1px solid var(--card-border); border-radius: 12px; background: var(--bg-elevated); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
-  .ticket .t-poster { width: 56px; height: 80px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--card-border); margin: 12px 0 12px 12px; }
+  #list-search:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(232,185,77,0.15); }
+  .filter-btn { background: transparent; border: 1px solid rgba(232,185,77,0.25); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 999px; cursor: pointer; transition: all 0.15s ease; }
+  .filter-btn.active { color: #1a1500; background: var(--gold); border-color: var(--gold); }
+  #list { margin-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .ticket { position: relative; display: flex; border: 1px solid rgba(232,185,77,0.15); border-radius: 14px; background: linear-gradient(180deg, rgba(22,26,38,0.95), rgba(16,18,28,0.98)); overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .ticket .t-poster { width: 58px; height: 84px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--card-border); margin: 14px 0 14px 14px; }
   .ticket .stub { display: none; }
   .ticket .body { flex: 1; padding: 12px 12px 12px 10px; min-width: 0; }
   .ticket .t-title { display: flex; align-items: flex-start; gap: 6px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.5px; margin: 0 0 4px; cursor: pointer; min-width: 0; }

@@ -29,10 +29,10 @@
   <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
   :root {
-    --bg: #12162A; --bg-elevated: #1B2038; --card-border: #33395C;
-    --gold: #E8B94D; --gold-dim: rgba(232, 185, 77, 0.14); --red-stamp: #C1443D;
-    --text: #F3F1EA; --text-muted: #9AA0BE;
-    --stream: #E8B94D; --rent: #7FB3D5; --buy: #B7BCD6; --free: #7FC29B;
+    --bg: #0a0c12; --bg-elevated: #141822; --card-border: rgba(232,185,77,0.18);
+    --gold: #e8b94d; --gold-dim: rgba(232, 185, 77, 0.12); --red-stamp: #c1443d;
+    --text: #f5f0e6; --text-muted: #a8a090;
+    --stream: #e8b94d; --rent: #8eb4c8; --buy: #b8b0c8; --free: #7fb89a;
   }
   * { box-sizing: border-box; }
   html, body {
@@ -42,12 +42,12 @@
     min-height: 100%;
   }
   #marquee-app {
-    background: var(--bg);
+    background: radial-gradient(ellipse at 50% 0%, rgba(232,185,77,0.06) 0%, transparent 40%), var(--bg);
     color: var(--text);
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
     min-height: 100dvh;
-    padding: calc(28px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    padding: calc(24px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
     display: flex;
     justify-content: center;
   }
