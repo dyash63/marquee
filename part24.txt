@@ -51,6 +51,8 @@ tContent = 'No availability found for this region.';
     }
     if (movie.status === 'towatch') actions.appendChild(makeBtn('Mark watched', 'watched', true));
     else actions.appendChild(makeBtn('Move to watchlist', 'towatch', false));
+    const favLabel = movie.favourite ? '★ Favourite' : '☆ Favourite';
+    actions.appendChild(makeBtn(favLabel, 'favourite', !!movie.favourite));
     actions.appendChild(makeBtn('Share', 'share', false));
     actions.appendChild(makeBtn('Remove', 'remove', false));
     bodyEl.appendChild(actions);
