@@ -65,19 +65,45 @@ RAGE_PREFIX + key); } catch (e) { return null; } }
     }
   }
 
+  function sanitizeForFirestore(value) {
+    if (value === undefined) return undefined; // signal omit
+    if (value === null || typeof value !== 'object') return value;
+    // Preserve Firestore sentinels (FieldValue) and other non-plain objects
+    if (value.constructor && value.constructor !== Object && value.constructor !== Array) return value;
+    if (Array.isArray(value)) {
+      return value.map(sanitizeForFirestore).filter(function (v) { return v !== undefined; });
+    }
+    var out = {};
+    Object.keys(value).forEach(function (k) {
+      var v = sanitizeForFirestore(value[k]);
+      if (v !== undefined) out[k] = v;
+    });
+    return out;
+  }
+
   async function saveToFirestore(immediate) {
     if (!state.user) return;
     const doSave = async () => {
       const ref = userDocRef();
       if (!ref) return;
       try {
-        await ref.set({ movies: state.movies, region: state.region, apiKey: state.apiKey || '', omdbKey: state.omdbKey || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        var payload = sanitizeForFirestore({
+          movies: state.movies,
+          region: state.region,
+          apiKey: state.apiKey || '',
+          omdbKey: state.omdbKey || '',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await ref.set(payload, { merge: true });
         trySave('movies', JSON.stringify(state.movies));
         trySave('region', state.region);
         saveApiKey(state.apiKey);
         saveOmdbKey(state.omdbKey);
         clearStorageBanner();
-      } catch (e) { console.error(e); showStorageBanner(); }
+      } catch (e) {
+        console.error('[Marquee] Firestore save failed', e && e.code, e && e.message, e);
+        showStorageBanner();
+      }
     };
     if (immediate) { clearTimeout(saveTimer); await doSave(); }
     else { clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
