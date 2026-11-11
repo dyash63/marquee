@@ -32,15 +32,50 @@ te.movies.filter(m => m.status === 'watched').length + ')';
   }
 
   function releaseInfoHtml(m) {
-    if (!m.releaseDate) return '';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const rel = new Date(m.releaseDate + 'T00:00:00');
-    if (isNaN(rel.getTime()) || rel <= today) return '';
-    const days = Math.ceil((rel - today) / 86400000);
-    const dateStr = formatDMY(m.releaseDate);
-    const countdown = days <= 60 ? ' · ' + days + ' day' + (days === 1 ? '' : 's') : '';
-    return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">COMING SOON<br/>Release: ' + escapeHtml(dateStr) + countdown + '</div>';
+    const isSeries = (m.mediaType || 'movie') === 'series';
+
+    // Movies
+    if (!isSeries) {
+      if (!m.releaseDate) {
+        return '<div class="coming-soon" style="font-size:11px; color:var(--text-muted); margin-top:4px;">Release date TBA</div>';
+      }
+      const rel = new Date(m.releaseDate + 'T00:00:00');
+      if (isNaN(rel.getTime()) || rel <= today) return '';
+      const days = Math.ceil((rel - today) / 86400000);
+      const dateStr = formatDMY(m.releaseDate);
+      const countdown = days <= 60 ? ' · ' + days + ' day' + (days === 1 ? '' : 's') : '';
+      return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">COMING SOON<br/>Release: ' + escapeHtml(dateStr) + countdown + '</div>';
+    }
+
+    // Series — do not treat an existing series as unreleased just because a future season exists
+    if (!m.releaseDate) {
+      return '<div class="coming-soon" style="font-size:11px; color:var(--text-muted); margin-top:4px;">Premiere TBA</div>';
+    }
+    const premiere = new Date(m.releaseDate + 'T00:00:00');
+    if (isNaN(premiere.getTime())) return '';
+
+    // Future first premiere
+    if (premiere > today) {
+      const days = Math.ceil((premiere - today) / 86400000);
+      const dateStr = formatDMY(m.releaseDate);
+      const countdown = days <= 60 ? ' · ' + days + ' day' + (days === 1 ? '' : 's') : '';
+      return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">PREMIERE<br/>' + escapeHtml(dateStr) + countdown + '</div>';
+    }
+
+    // Existing series: show next-episode / season status if already loaded, otherwise leave to details panel
+    if (m.seasonDetails && m.seasonDetails.nextEpisode) {
+      const ne = String(m.seasonDetails.nextEpisode);
+      if (ne === 'Series ended') {
+        return '<div class="coming-soon" style="font-size:11px; color:var(--text-muted); margin-top:4px;">Series ended</div>';
+      }
+      if (ne.indexOf('No new season') === 0) {
+        return '';
+      }
+      return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">' + escapeHtml(ne) + '</div>';
+    }
+    return '';
   }
 
   function renderList() {
