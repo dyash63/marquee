@@ -42,7 +42,6 @@ a.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>'
         '<button class="icon-btn" data-action="toggle-details" data-id="' + m.id + '" title="Expand inline">Inline</button></div></div></div>';
     }).join('');
     renderTagChips();
-    renderRecentSection();
   }
 
   function renderTagChips() {
