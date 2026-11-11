@@ -83,4 +83,31 @@
     }
     if (libraryCount < MIN_LIBRARY_FOR_SUGGESTIONS) {
       const remaining = MIN_LIBRARY_FOR_SUGGESTIONS - libraryCount;
-      body.innerHTML = '<div class="suggest-empty">Add ' + remaining + ' more title' + (r
+      body.innerHTML = '<div class="suggest-empty">Add ' + remaining + ' more title' + (remaining === 1 ? '' : 's') + ' with a TMDB ID to unlock suggestions.</div>';
+      return;
+    }
+    if (state.suggestState === 'loading') {
+      body.innerHTML = '<div class="suggest-empty">Finding titles you might like…</div>';
+      return;
+    }
+    if (state.suggestState === 'error') {
+      body.innerHTML = '<div class="suggest-empty">' + escapeHtml(state.suggestError || 'Could not load suggestions.') + '</div>';
+      return;
+    }
+    if (!state.suggestions.length) {
+      body.innerHTML = '<div class="suggest-empty">No new suggestions right now. Check back after watching more.</div>';
+      return;
+    }
+    body.innerHTML = state.suggestions.map(s => {
+      const key = suggestionKey(s.mediaType, s.tmdbId);
+      const poster = s.posterLink ? '<img class="suggest-poster" src="' + escapeHtml(s.posterLink) + '" alt="" loading="lazy" />' : '<div class="suggest-poster suggest-poster-empty"></div>';
+      return '<div class="suggest-card" data-key="' + escapeHtml(key) + '">' + poster +
+        '<div class="suggest-info"><p class="suggest-title">' + escapeHtml(s.title) + (s.year ? ' <span class="suggest-year">(' + escapeHtml(s.year) + ')</span>' : '') + typeTagHtml(s.mediaType) + imdbBadgeHtml(s.imdbRating) + '</p>' +
+        (s.genres && s.genres.length ? '<p class="genre-line">' + genreTagsHtml(s.genres) + '</p>' : '') +
+        '<p class="suggest-summary">' + escapeHtml((s.summary || '').slice(0, 140)) + ((s.summary || '').length > 140 ? '…' : '') + '</p>' +
+        '<div class="suggest-actions"><button type="button" class="btn filled" data-add="' + escapeHtml(key) + '">Add to watchlist</button>' +
+        '<button type="button" class="btn" data-dismiss="' + escapeHtml(key) + '">Dismiss</button></div></div></div>';
+    }).join('');
+    body.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => addSuggestionToWatchlist(btn.getAttribute('data-add'))));
+    body.querySelectorAll('[data-dismiss]').forEach(btn => btn.addEventListener('click', () => dismissSuggestion(btn.getAttribute('data-dismiss'))));
+  }
