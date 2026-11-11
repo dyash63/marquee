@@ -29,4 +29,4 @@
   .ticket .t-title { display: flex; align-items: flex-start; gap: 6px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.5px; margin: 0 0 4px; cursor: pointer; min-width: 0; }
   .ticket .t-title-text { min-width: 0; flex: 1; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
   .ticket .t-title-meta { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; padding-top: 2px; }
-  .ticket .t-title .caret { font-family: 'Inter', sans-serif; color: var(--text-muted); font-
+  .ticket .t-title .caret { font-family: 'Inter', sans-serif; color: var(--text-muted); background: none; border: none; padding: 4px 6px; cursor: pointer; line-height: 1; font-
