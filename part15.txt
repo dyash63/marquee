@@ -57,7 +57,7 @@
     state.movies.unshift({
       id: finalId, title: s.title, year: s.year || '', summary: s.summary || '', posterLink: s.posterLink || '',
       mediaType: s.mediaType, tmdbId: s.tmdbId, latestKnown: '', hasUpdate: false,
-      platforms, status: 'towatch', addedAt: new Date().toISOString(), addedVia: 'suggestion',
+      platforms, status: 'towatch', favourite: false, addedAt: new Date().toISOString(), addedVia: 'suggestion',
       imdbRating: s.imdbRating || undefined, genres: s.genres || []
     });
     state.suggestions.splice(idx, 1);
