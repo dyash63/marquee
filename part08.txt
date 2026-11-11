@@ -39,7 +39,6 @@ n type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12p
     <div id="storage-banner"></div>
     
     <div id="tag-chips" class="tag-chips" style="display:none;"></div>
-    <div id="recent-section" class="recent-section" style="display:none;"></div>
     <p class="search-hint" id="search-hint">Press <kbd>/</kbd> to search · arrows to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close</p>
     <div id="list"></div>
 
