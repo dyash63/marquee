@@ -7,22 +7,6 @@
     renderList();
   });
 
-  // Recent section
-  document.getElementById('recent-section') && document.getElementById('recent-section').addEventListener('click', (e) => {
-    const item = e.target.closest('[data-recent-id]');
-    if (!item) return;
-    const id = item.getAttribute('data-recent-id');
-    const m = state.movies.find(x => x.id === id);
-    if (m) {
-      state.activeTab = m.status === 'watched' ? 'watched' : 'towatch';
-      renderTabs();
-      openModal(id);
-    } else {
-      // still allow opening hash for missing? just track
-      openModal(id);
-    }
-  });
-
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     // don't steal when typing in inputs (except Escape handled by trap)
@@ -73,6 +57,7 @@
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
   tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
+  if (tabFavourites) tabFavourites.addEventListener('click', () => { state.activeTab = 'favourites'; renderTabs(); renderList(); });
   tabSuggested.addEventListener('click', () => { state.activeTab = 'suggested'; renderTabs(); });
 
   document.getElementById('media-filter').addEventListener('click', (e) => {

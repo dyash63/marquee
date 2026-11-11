@@ -1,6 +1,27 @@
 tContent = 'No availability found for this region.';
       bodyEl.appendChild(none);
     }
+    if (movie.director) {
+      const p = document.createElement('p');
+      p.className = 'details-cast';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Director';
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(' · ' + movie.director));
+      bodyEl.appendChild(p);
+    }
+    if (movie.runtime) {
+      const p = document.createElement('p');
+      p.style.fontSize = '13px'; p.style.color = 'var(--text-muted)';
+      p.textContent = 'Runtime · ' + movie.runtime + ' min';
+      bodyEl.appendChild(p);
+    }
+    if (movie.originalLanguage) {
+      const p = document.createElement('p');
+      p.style.fontSize = '13px'; p.style.color = 'var(--text-muted)';
+      p.textContent = 'Language · ' + movie.originalLanguage.toUpperCase();
+      bodyEl.appendChild(p);
+    }
     if (movie.cast && movie.cast.length) {
       const p = document.createElement('p');
       p.className = 'details-cast';
@@ -14,6 +35,15 @@ tContent = 'No availability found for this region.';
       p.className = 'details-cast';
       p.textContent = 'Cast · Loading…';
       bodyEl.appendChild(p);
+    }
+    if (movie.trailerKey) {
+      const a = document.createElement('a');
+      a.href = 'https://www.youtube.com/watch?v=' + movie.trailerKey;
+      a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'icon-btn';
+      a.textContent = 'Play trailer';
+      a.style.marginTop = '8px';
+      bodyEl.appendChild(a);
     }
     if (movie.mediaType === 'series') {
       if (movie.seasonDetailsLoading) {
@@ -51,6 +81,8 @@ tContent = 'No availability found for this region.';
     }
     if (movie.status === 'towatch') actions.appendChild(makeBtn('Mark watched', 'watched', true));
     else actions.appendChild(makeBtn('Move to watchlist', 'towatch', false));
+    const favLabel = movie.favourite ? '★ Favourite' : '☆ Favourite';
+    actions.appendChild(makeBtn(favLabel, 'favourite', !!movie.favourite));
     actions.appendChild(makeBtn('Share', 'share', false));
     actions.appendChild(makeBtn('Remove', 'remove', false));
     bodyEl.appendChild(actions);
@@ -83,7 +115,6 @@ tContent = 'No availability found for this region.';
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     };
     document.addEventListener('keydown', modalFocusTrapHandler, true);
-    renderRecentSection();
   }
 
   function closeModal(skipHash) 

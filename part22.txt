@@ -34,15 +34,15 @@ a.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>'
       const titleHtml = tokens.length ? highlightText(m.title, tokens) : escapeHtml(m.title);
       const idx = items.indexOf(m);
       const kbClass = (state.kbIndex === idx) ? ' kb-focused' : '';
+      const comingSoonHtml = (typeof releaseInfoHtml === 'function') ? releaseInfoHtml(m) : '';
       return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + kbClass + '" data-ticket-id="' + m.id + '" data-kb-index="' + idx + '" tabindex="0" role="button" aria-label="' + escapeHtml(m.title) + '">' + posterImgHtml + '<div class="stub">' + (m.year || '—') + '</div><div class="body">' +
         '<p class="t-title" data-action="open-modal" data-id="' + m.id + '">' +
         '<span class="t-title-text">' + titleHtml + typeTagHtml(m.mediaType) + '</span>' +
         '<span class="t-title-meta">' + imdbBadgeHtml(m.imdbRating) + '<span class="caret">' + (isOpen ? '▾' : '▸') + '</span></span></p>' +
-        genresHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions +
+        genresHtml + comingSoonHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions +
         '<button class="icon-btn" data-action="toggle-details" data-id="' + m.id + '" title="Expand inline">Inline</button></div></div></div>';
     }).join('');
     renderTagChips();
-    renderRecentSection();
   }
 
   function renderTagChips() {
