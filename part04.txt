@@ -30,7 +30,17 @@ d); box-shadow: 0 0 0 1px var(--gold), 0 4px 16px rgba(232, 185, 77, 0.2); }
   .choice-meta { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
   .choice-cancel { align-self: flex-start; margin-top: 2px; }
   .footer-credit { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 28px; letter-spacing: 0.2px; }
-  #auth-overlay { position: fixed; inset: 0; background: rgba(10, 12, 24, 0.92); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  #auth-overlay { position: fixed; inset: 0; background:
+  radial-gradient(ellipse at 50% 30%, rgba(232,185,77,0.08) 0%, transparent 45%),
+  radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.6) 0%, transparent 50%),
+  rgba(6, 7, 12, 0.96);
+  display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+  overflow: hidden; }
+#auth-overlay::before { content: ''; position: absolute; inset: -20%;
+  background: radial-gradient(circle at 30% 20%, rgba(232,185,77,0.06), transparent 40%),
+              radial-gradient(circle at 70% 80%, rgba(120,90,40,0.05), transparent 35%);
+  animation: ambient 12s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes ambient { from { transform: translate(0,0) scale(1); } to { transform: translate(-2%,2%) scale(1.05); } }
   #auth-overlay.visible { display: flex; }
   #auth-overlay.hidden { display: none; }
   #auth-boot { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; color: 
