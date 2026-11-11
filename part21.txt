@@ -1,6 +1,10 @@
 te.movies.filter(m => m.status === 'watched').length + ')';
     tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
     tabWatched.classList.toggle('active', state.activeTab === 'watched');
+    if (typeof tabFavourites !== 'undefined') {
+      tabFavourites.textContent = 'Favourites (' + state.movies.filter(m => m.favourite).length + ')';
+      tabFavourites.classList.toggle('active', state.activeTab === 'favourites');
+    }
     tabSuggested.classList.toggle('active', state.activeTab === 'suggested');
     const isSuggested = state.activeTab === 'suggested';
     mediaFilterEl.style.display = isSuggested ? 'none' : 'flex';
@@ -27,10 +31,27 @@ te.movies.filter(m => m.status === 'watched').length + ')';
       : ' <span class="movie-tag">MOVIE</span>';
   }
 
+  function releaseInfoHtml(m) {
+    if (!m.releaseDate) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rel = new Date(m.releaseDate + 'T00:00:00');
+    if (isNaN(rel.getTime()) || rel <= today) return '';
+    const days = Math.ceil((rel - today) / 86400000);
+    const dateStr = formatDMY(m.releaseDate);
+    const countdown = days <= 60 ? ' · ' + days + ' day' + (days === 1 ? '' : 's') : '';
+    return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">COMING SOON<br/>Release: ' + escapeHtml(dateStr) + countdown + '</div>';
+  }
+
   function renderList() {
     const tokens = tokenizeQuery(state.listSearchQuery);
     const tag = (state.tagFilter || '').toLowerCase();
-    let pool = state.movies.filter(m => m.status === state.activeTab && matchesMediaFilter(m));
+    let pool;
+    if (state.activeTab === 'favourites') {
+      pool = state.movies.filter(m => m.favourite && matchesMediaFilter(m));
+    } else {
+      pool = state.movies.filter(m => m.status === state.activeTab && matchesMediaFilter(m));
+    }
     if (tag) pool = pool.filter(m => (m.genres || []).some(g => String(g).toLowerCase() === tag));
     const scored = pool.map(m => {
       const r = scoreMovieAgainstQuery(m, tokens);
@@ -42,6 +63,10 @@ te.movies.filter(m => m.status === 'watched').length + ')';
     if (!items.length) {
       const filterWord = state.mediaFilter === 'series' ? 'series' : (state.mediaFilter === 'movie' ? 'movies' : 'titles');
       if (tokens.length || state.tagFilter) { listEl.innerHTML = '<div class="empty-state">No ' + filterWord + ' matching “' + escapeHtml(state.listSearchQuery.trim() || state.tagFilter) + '”.</div>'; return; }
+      if (state.activeTab === 'favourites') {
+        listEl.innerHTML = '<div class="empty-state">No favourites yet.<br/>Tap the star on any title to add it here.</div>';
+        return;
+      }
       listEl.innerHTML = state.activeTab === 'towatch'
         ? '<div class="empty-state">Your marquee is empty.<br/>Search above to add ' + filterWord + '.</div>'
         : '<div class="empty-state">Nothing watched yet.<br/>Once you finish one, mark it here.</div>';
@@ -51,9 +76,13 @@ te.movies.filter(m => m.status === 'watched').length + ')';
       const pills = (m.platforms && m.platforms.length)
         ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
         : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
-      const actions = (m.status === 'towatch'
-        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
-        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
+      const favIcon = m.favourite ? '★' : '☆';
+      const favClass = m.favourite ? ' primary' : '';
+      const statusLabel = m.status === 'watched' ? 'Watched' : 'To watch';
+      const comingSoon = (typeof releaseInfoHtml === 'function') ? releaseInfoHtml(m) : '';
+      const actions = '<button class="icon-btn' + favClass + '" data-action="favourite" data-id="' + m.id + '" title="Toggle favourite">' + favIcon + '</button>'
+        + '<button class="icon-btn" data-action="' + (m.status === 'towatch' ? 'watched' : 'towatch') + '" data-id="' + m.id + '">' + statusLabel + '</button>'
+        + '<button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
         + '<button class="icon-btn" data-action="share" data-id="' + m.id + '" title="Share as image">📤</button>';
       let updateBannerHtml = '';
       if (m.hasUpdate) {
