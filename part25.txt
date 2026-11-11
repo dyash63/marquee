@@ -50,6 +50,7 @@
     if (!movie) return;
     if (action === 'watched') movie.status = 'watched';
     if (action === 'towatch') movie.status = 'towatch';
+    if (action === 'favourite') movie.favourite = !movie.favourite;
     if (action === 'dismiss-update') { movie.hasUpdate = false; movie.updateDetail = ''; }
     if (action === 'remove') {
       state.movies = state.movies.filter(m => m.id !== id);
@@ -78,6 +79,7 @@
         if (action === 'share') { shareMovie(movie); return; }
         if (action === 'watched') movie.status = 'watched';
         if (action === 'towatch') movie.status = 'towatch';
+        if (action === 'favourite') movie.favourite = !movie.favourite;
         if (action === 'remove') {
           state.movies = state.movies.filter(m => m.id !== id);
           saveToFirestore(); closeModal(); renderTabs(); renderList(); renderNotifications(); maybeAutoSuggest();
