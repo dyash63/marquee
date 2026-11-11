@@ -53,6 +53,10 @@
     if (addBtn) { addSuggestionToWatchlist(addBtn.getAttribute('data-add')); return; }
     const dismissBtn = e.target.closest('[data-dismiss]');
     if (dismissBtn) { dismissSuggestion(dismissBtn.getAttribute('data-dismiss')); return; }
+    const card = e.target.closest('.suggest-card');
+    if (card && !e.target.closest('button, a')) {
+      openSuggestionModal(card.getAttribute('data-suggest-key'));
+    }
   });
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });

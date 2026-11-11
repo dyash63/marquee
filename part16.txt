@@ -16,7 +16,7 @@ emaining === 1 ? '' : 's') + ' to To watch or Watched to unlock suggestions.</di
     body.innerHTML = '<div class="suggest-list">' + state.suggestions.map(s => {
       const key = suggestionKey(s.mediaType, s.tmdbId);
       const img = isValidLink(s.posterLink) ? '<img class="s-poster" src="' + escapeHtml(s.posterLink) + '" alt="" />' : '<div class="s-poster"></div>';
-      return '<div class="suggest-card">' + img +
+      return '<div class="suggest-card" data-suggest-key="' + key + '" style="cursor:pointer;">' + img +
         '<div class="s-body"><p class="s-title">' + escapeHtml(s.title) + typeTagHtml(s.mediaType) + imdbBadgeHtml(s.imdbRating) + '</p>' +
         '<p class="s-meta">' + escapeHtml(s.year || '') + '</p>' +
         (s.genres && s.genres.length ? '<p class="s-genres">' + genreTagsHtml(s.genres, 'small') + '</p>' : '') +
@@ -26,7 +26,63 @@ emaining === 1 ? '' : 's') + ' to To watch or Watched to unlock suggestions.</di
     }).join('') + '</div>';
   }
 
-  // Returns TMDB's raw candidate matches for a query — title, year, media type,
+
+  function openSuggestionModal(key) {
+    const s = state.suggestions.find(x => suggestionKey(x.mediaType, x.tmdbId) === key);
+    if (!s) return;
+    state.modalId = 'suggest:' + key;
+    const backdrop = document.getElementById('modal-backdrop');
+    const modal = document.getElementById('modal');
+    const titleEl = document.getElementById('modal-title');
+    const metaEl = document.getElementById('modal-meta');
+    const genresEl = document.getElementById('modal-genres');
+    const bodyEl = document.getElementById('modal-body');
+    const posterEl = document.getElementById('modal-poster');
+    if (!backdrop || !titleEl || !bodyEl) return;
+    titleEl.textContent = s.title || '';
+    const metaParts = [];
+    if (s.year) metaParts.push(String(s.year));
+    metaParts.push(s.mediaType === 'series' ? 'Series' : 'Movie');
+    if (s.imdbRating) metaParts.push('IMDb ' + s.imdbRating);
+    metaEl.textContent = metaParts.join(' · ');
+    genresEl.innerHTML = (s.genres && s.genres.length) ? genreTagsHtml(s.genres) : '';
+    if (isValidLink(s.posterLink)) {
+      posterEl.src = s.posterLink;
+      posterEl.style.display = '';
+    } else {
+      posterEl.removeAttribute('src');
+      posterEl.style.display = 'none';
+    }
+    bodyEl.innerHTML = '';
+    if (s.summary) {
+      const p = document.createElement('p');
+      p.className = 'details-summary';
+      p.textContent = s.summary;
+      bodyEl.appendChild(p);
+    }
+    const actions = document.createElement('div');
+    actions.className = 'modal-actions';
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn filled';
+    addBtn.textContent = 'Add to watchlist';
+    addBtn.addEventListener('click', function () { closeModal(); addSuggestionToWatchlist(key); });
+    const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'icon-btn';
+    dismissBtn.textContent = 'Not interested';
+    dismissBtn.addEventListener('click', function () { closeModal(); dismissSuggestion(key); });
+    actions.appendChild(addBtn);
+    actions.appendChild(dismissBtn);
+    bodyEl.appendChild(actions);
+    backdrop.hidden = false;
+    requestAnimationFrame(function () {
+      backdrop.classList.add('open');
+      document.body.classList.add('modal-open');
+      var closeBtn = document.getElementById('modal-close');
+      if (closeBtn) closeBtn.focus();
+    });
+  }
+
+    // Returns TMDB's raw candidate matches for a query — title, year, media type,
   // and original language for each, so the caller can show them for disambiguation
   // rather than silently guessing at the top hit (which is often wrong for
   // misspellings, or ambiguous for common titles that exist in several
