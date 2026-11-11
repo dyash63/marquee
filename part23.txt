@@ -15,29 +15,10 @@ etElementById('tag-chips');
       tags.map(([g, c]) => '<button type="button" class="tag-chip' + (state.tagFilter === g ? ' active' : '') + '" data-tag="' + escapeHtml(g) + '">' + escapeHtml(g) + ' · ' + c + '</button>').join('');
   }
 
-  function renderRecentSection() {
-    const el = document.getElementById('recent-section');
-    if (!el) return;
-    if (state.activeTab === 'suggested' || state.listSearchQuery.trim() || state.tagFilter) {
-      el.style.display = 'none'; return;
-    }
-    const recent = state.recentViews.length ? state.recentViews : loadRecentViews();
-    state.recentViews = recent;
-    if (!recent.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.style.display = 'block';
-    el.innerHTML = '<p class="recent-title">Recently viewed</p><div class="recent-list">' +
-      recent.slice(0, 5).map(r => {
-        const poster = isValidLink(r.posterLink) ? '<img class="r-poster" src="' + escapeHtml(r.posterLink) + '" alt="" />' : '<div class="r-poster"></div>';
-        return '<button type="button" class="recent-item" data-recent-id="' + escapeHtml(r.id) + '">' + poster +
-          '<span class="r-title">' + escapeHtml(r.title) + (r.year ? ' (' + escapeHtml(r.year) + ')' : '') + '</span></button>';
-      }).join('') + '</div>';
-  }
-
   function openModal(id) {
     const movie = state.movies.find(m => m.id === id);
     if (!movie) return;
     state.modalId = id;
-    trackRecentView(movie);
     const backdrop = document.getElementById('modal-backdrop');
     const modal = document.getElementById('modal');
     const titleEl = document.getElementById('modal-title');
