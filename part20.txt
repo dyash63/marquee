@@ -33,6 +33,7 @@
       m.status = status; m.platforms = r.platforms || []; m.summary = r.summary || ''; m.posterLink = r.posterLink || '';
       m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId; m.genres = r.genres || m.genres || [];
       if (r.imdbRating) m.imdbRating = r.imdbRating;
+      if (m.favourite === undefined) m.favourite = false;
       finalId = m.id; needsBaseline = m.mediaType === 'series' && !m.latestKnown;
     } else {
       finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
@@ -40,7 +41,7 @@
       state.movies.unshift({
         id: finalId, title: r.title, year: r.year || '', summary: r.summary || '', posterLink: r.posterLink || '',
         mediaType: r.mediaType || 'movie', tmdbId: r.tmdbId || null, latestKnown: '', hasUpdate: false,
-        platforms: r.platforms || [], status, addedAt: new Date().toISOString(), genres: r.genres || [],
+        platforms: r.platforms || [], status, favourite: false, addedAt: new Date().toISOString(), genres: r.genres || [],
         imdbRating: r.imdbRating || undefined
       });
     }
