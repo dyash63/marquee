@@ -25,7 +25,7 @@ ose:focus-visible { color: var(--text); border-color: var(--gold); outline: none
   .ticket { cursor: pointer; }
   .ticket:focus { outline: none; }
 
-  /* Tag chips + recent */
+  /* Tag chips */
   .tag-chips {
     display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
   }
@@ -35,27 +35,6 @@ ose:focus-visible { color: var(--text); border-color: var(--gold); outline: none
     padding: 4px 10px; border-radius: 999px; cursor: pointer;
   }
   .tag-chip.active { color: #16213e; background: var(--gold); border-color: var(--gold); }
-  .recent-section {
-    margin-top: 12px; margin-bottom: 4px;
-    border: 1px solid var(--card-border); border-radius: 10px;
-    background: var(--bg-elevated); padding: 10px 12px;
-  }
-  .recent-title {
-    font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.5px;
-    color: var(--gold); margin: 0 0 8px;
-  }
-  .recent-list { display: flex; flex-direction: column; gap: 6px; }
-  .recent-item {
-    display: flex; align-items: center; gap: 8px; padding: 4px 0;
-    cursor: pointer; font-size: 13px; border: none; background: none;
-    color: var(--text); font-family: inherit; text-align: left; width: 100%;
-  }
-  .recent-item:hover, .recent-item:focus-visible { color: var(--gold); outline: none; }
-  .recent-item .r-poster {
-    width: 28px; height: 40px; border-radius: 3px; object-fit: cover;
-    background: var(--card-border); flex-shrink: 0;
-  }
-  .recent-item .r-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .search-hint {
     font-size: 11px; color: var(--text-muted); margin-top: 6px;
   }
@@ -72,14 +51,7 @@ ose:focus-visible { color: var(--text); border-color: var(--gold); outline: none
   <div class="welcome-card">
     <div class="bulbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
     <p class="mq-logo">MARQUEE</p>
-    <p class="mq-tagline">Find it, watch it, track it.</p>
-    <h2>Your personal movie & series watchlist</h2>
-    <p>Search titles, see where to stream / rent / buy in your region, keep To-watch & Watched lists, and get notified about new episodes.</p>
-    <ul class="welcome-features">
-      <li>See where to stream, rent, or buy — for your region</li>
-      <li>Personalized “Suggested for you” recommendations</li>
-      <li>Real IMDb ratings on your titles</li>
-      <li>100% free — no credit card ever</li>
-    </ul>
+    <p class="vistora-line">Your Vistora of movies & series.</p>
+    <p class="supporting">A world of stories, collected, curated and remembered.</p>
     <button type="button" class="google-btn" id="google-signin-btn">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18
