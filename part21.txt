@@ -2,7 +2,7 @@ te.movies.filter(m => m.status === 'watched').length + ')';
     tabToWatch.classList.toggle('active', state.activeTab === 'towatch');
     tabWatched.classList.toggle('active', state.activeTab === 'watched');
     if (typeof tabFavourites !== 'undefined') {
-      tabFavourites.textContent = 'Favourites (' + state.movies.filter(m => m.favourite).length + ')';
+      tabFavourites.textContent = 'Favs (' + state.movies.filter(m => m.favourite).length + ')';
       tabFavourites.classList.toggle('active', state.activeTab === 'favourites');
     }
     tabSuggested.classList.toggle('active', state.activeTab === 'suggested');

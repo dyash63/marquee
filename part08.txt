@@ -15,7 +15,7 @@ n type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12p
       <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
       <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
       <button class="tab-btn" data-tab="favourites" id="tab-favourites">Favourites</button>
-      <button class="tab-btn" data-tab="suggested" id="tab-suggested">🎬 Suggested</button>
+      <button class="tab-btn" data-tab="suggested" id="tab-suggested">Suggested</button>
     </div>
     <div class="media-filter" id="media-filter">
       <button class="filter-btn active" data-filter="all">All</button>
