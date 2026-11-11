@@ -14,6 +14,7 @@ n type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12p
     <div class="tabs">
       <button class="tab-btn active" data-tab="towatch" id="tab-towatch">To watch</button>
       <button class="tab-btn" data-tab="watched" id="tab-watched">Watched</button>
+      <button class="tab-btn" data-tab="favourites" id="tab-favourites">Favourites</button>
       <button class="tab-btn" data-tab="suggested" id="tab-suggested">🎬 Suggested</button>
     </div>
     <div class="media-filter" id="media-filter">
@@ -39,7 +40,6 @@ n type="button" class="btn filled" id="save-omdb-key-btn" style="padding:6px 12p
     <div id="storage-banner"></div>
     
     <div id="tag-chips" class="tag-chips" style="display:none;"></div>
-    <div id="recent-section" class="recent-section" style="display:none;"></div>
     <p class="search-hint" id="search-hint">Press <kbd>/</kbd> to search · arrows to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close</p>
     <div id="list"></div>
 
