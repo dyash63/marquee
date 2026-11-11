@@ -69,6 +69,7 @@
   const regionCustom = document.getElementById('region-custom');
   const tabToWatch = document.getElementById('tab-towatch');
   const tabWatched = document.getElementById('tab-watched');
+  const tabFavourites = document.getElementById('tab-favourites');
   const tabSuggested = document.getElementById('tab-suggested');
   const mediaFilterEl = document.getElementById('media-filter');
   const listSearchRowEl = document.getElementById('list-search-row');
@@ -82,7 +83,7 @@
   const omdbKeyStatus = document.getElementById('omdb-key-status');
 
   function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[c]));
   }
   function platformLabel(type) { return { stream: 'Stream', rent: 'Rent', buy: 'Buy', free: 'Free' }[type] || 'Available'; }
   function isValidLink(url) { return typeof url === 'string' && /^https?:\/\//i.test(url.trim()); }
