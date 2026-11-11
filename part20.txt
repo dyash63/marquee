@@ -1,1 +1,65 @@
-PLACEHOLDER
+     '<button type="button" class="btn choice-cancel" id="choice-cancel">Cancel</button></div>';
+      resultArea.querySelectorAll('.choice-item').forEach(btn => {
+        btn.addEventListener('click', () => chooseSearchCandidate(Number(btn.getAttribute('data-idx'))));
+      });
+      document.getElementById('choice-cancel').addEventListener('click', () => { state.searchState = 'idle'; state.searchCandidates = []; state.personSearchName = ''; renderResult(); });
+      return;
+    }
+    if (state.searchState === 'result') {
+      const r = state.searchResult;
+      const pillsHtml = (r.platforms && r.platforms.length)
+        ? '<div class="platform-pills">' + r.platforms.map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + ' · ' + platformLabel(p.type) + '</span>').join('') + '</div>'
+        : '<div class="no-platforms">No streaming, rental, or purchase options found for this region.</div>';
+      const posterLinkHtml = isValidLink(r.posterLink) ? '<a class="poster-link" href="' + escapeHtml(r.posterLink) + '" target="_blank" rel="noopener">View poster ↗</a>' : '';
+      const resultGenresHtml = (r.genres && r.genres.length) ? '<p class="genre-line">' + genreTagsHtml(r.genres) + '</p>' : '';
+      resultArea.innerHTML =
+        '<div class="result-card"><button class="dismiss" id="dismiss-btn" aria-label="Dismiss">✕</button>' +
+        '<p class="result-title">' + escapeHtml(r.title) + (r.year ? ' <span class="result-year">(' + escapeHtml(r.year) + ')</span>' : '') + typeTagHtml(r.mediaType) + imdbBadgeHtml(r.imdbRating) + '</p>' +
+        resultGenresHtml +
+        posterLinkHtml + '<p class="result-summary">' + escapeHtml(r.summary || '') + '</p>' + pillsHtml +
+        '<div class="result-actions"><button class="btn filled" id="add-towatch">Add to watchlist</button><button class="btn" id="add-watched">Mark as watched</button></div></div>';
+      document.getElementById('dismiss-btn').addEventListener('click', () => { state.searchState = 'idle'; state.searchResult = null; renderResult(); });
+      document.getElementById('add-towatch').addEventListener('click', () => addResultToList('towatch'));
+      document.getElementById('add-watched').addEventListener('click', () => addResultToList('watched'));
+    }
+  }
+
+  function addResultToList(status) {
+    const r = state.searchResult;
+    const existingIdx = state.movies.findIndex(m => m.title.toLowerCase() === r.title.toLowerCase() && m.year === r.year);
+    let finalId, needsBaseline = false;
+    if (existingIdx !== -1) {
+      const m = state.movies[existingIdx];
+      m.status = status; m.platforms = r.platforms || []; m.summary = r.summary || ''; m.posterLink = r.posterLink || '';
+      m.mediaType = r.mediaType || 'movie'; m.tmdbId = r.tmdbId || m.tmdbId; m.genres = r.genres || m.genres || [];
+      if (r.imdbRating) m.imdbRating = r.imdbRating;
+      if (m.favourite === undefined) m.favourite = false;
+      if (r.releaseDate) m.releaseDate = r.releaseDate;
+      if (r.backdropLink) m.backdropLink = r.backdropLink;
+      if (r.runtime) m.runtime = r.runtime;
+      if (r.trailerKey) m.trailerKey = r.trailerKey;
+      if (r.director) m.director = r.director;
+      if (r.originalLanguage) m.originalLanguage = r.originalLanguage;
+      finalId = m.id; needsBaseline = m.mediaType === 'series' && !m.latestKnown;
+    } else {
+      finalId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      needsBaseline = (r.mediaType || 'movie') === 'series';
+      state.movies.unshift({
+        id: finalId, title: r.title, year: r.year || '', summary: r.summary || '', posterLink: r.posterLink || '',
+        mediaType: r.mediaType || 'movie', tmdbId: r.tmdbId || null, latestKnown: '', hasUpdate: false,
+        platforms: r.platforms || [], status, favourite: false, addedAt: new Date().toISOString(), genres: r.genres || [],
+        releaseDate: r.releaseDate || null, backdropLink: r.backdropLink || null,
+        runtime: r.runtime || null, trailerKey: r.trailerKey || null,
+        director: r.director || null, originalLanguage: r.originalLanguage || null,
+        imdbRating: r.imdbRating || null
+      });
+    }
+    saveToFirestore();
+    state.searchState = 'idle'; state.searchResult = null; input.value = '';
+    state.activeTab = status; renderResult(); renderTabs(); renderList(); maybeAutoSuggest(); backfillImdbRatings(); backfillGenres();
+    if (needsBaseline) establishSeriesBaseline(finalId);
+  }
+
+  function renderTabs() {
+    tabToWatch.textContent = 'To watch (' + state.movies.filter(m => m.status === 'towatch').length + ')';
+    tabWatched.textContent = 'Watched (' + sta
