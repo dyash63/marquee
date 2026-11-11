@@ -29,7 +29,7 @@ var(--text-muted); font-size: 14px; }
   /* Modal */
   .modal-backdrop {
     position: fixed; inset: 0; z-index: 100;
-    background: rgba(10, 12, 24, 0.72);
+    background: rgba(6, 7, 12, 0.82);
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     opacity: 0; visibility: hidden;
     transition: opacity 0.22s ease, visibility 0.22s ease;
@@ -42,20 +42,21 @@ var(--text-muted); font-size: 14px; }
   }
   .modal {
     width: 100%; max-width: 440px; max-height: min(88vh, 720px);
-    background: var(--bg-elevated); border: 1px solid var(--card-border);
-    border-radius: 14px 14px 0 0; overflow: hidden;
+    background: linear-gradient(180deg, #161a24, #101218);
+    border: 1px solid rgba(232,185,77,0.2);
+    border-radius: 18px 18px 0 0; overflow: hidden;
     transform: translateY(24px); opacity: 0;
     transition: transform 0.25s ease, opacity 0.22s ease;
     display: flex; flex-direction: column;
-    box-shadow: 0 -8px 40px rgba(0,0,0,0.45);
+    box-shadow: 0 -12px 48px rgba(0,0,0,0.6);
   }
   @media (min-width: 520px) {
     .modal { border-radius: 14px; transform: translateY(12px) scale(0.98); }
   }
   .modal-backdrop.open .modal { transform: translateY(0) scale(1); opacity: 1; }
   .modal-header {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 14px 14px 10px; border-bottom: 1px solid var(--card-border);
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 16px 12px; border-bottom: 1px solid rgba(232,185,77,0.12);
     flex-shrink: 0;
   }
   .modal-poster {
@@ -69,8 +70,8 @@ var(--text-muted); font-size: 14px; }
   }
   .modal-meta { font-size: 12px; color: var(--text-muted); margin: 0 0 6px; }
   .modal-close {
-    background: none; border: 1px solid var(--card-border); color: var(--text-muted);
-    width: 36px; height: 36px; border-radius: 8px; font-size: 18px; cursor: pointer;
-    flex-shrink: 0; line-height: 1;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(232,185,77,0.2); color: var(--text-muted);
+    width: 36px; height: 36px; border-radius: 10px; font-size: 18px; cursor: pointer;
+    flex-shrink: 0; line-height: 1; transition: border-color 0.15s ease, color 0.15s ease;
   }
   .modal-close:hover, .modal-cl
