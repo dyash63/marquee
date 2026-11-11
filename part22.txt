@@ -38,9 +38,9 @@ a.me/?text=' + waText + '" target="_blank" rel="noopener">Share on WhatsApp</a>'
       return '<div class="ticket' + (m.hasUpdate ? ' has-update' : '') + kbClass + '" data-ticket-id="' + m.id + '" data-kb-index="' + idx + '" tabindex="0" role="button" aria-label="' + escapeHtml(m.title) + '">' + posterImgHtml + '<div class="body">' +
         '<p class="t-title" data-action="open-modal" data-id="' + m.id + '">' +
         '<span class="t-title-text">' + titleHtml + typeTagHtml(m.mediaType) + (m.year ? ' <span class="year-badge">' + escapeHtml(String(m.year)) + '</span>' : '') + '</span>' +
-        '<span class="t-title-meta">' + imdbBadgeHtml(m.imdbRating) + '<span class="caret">' + (isOpen ? '▾' : '▸') + '</span></span></p>' +
+        '<span class="t-title-meta">' + imdbBadgeHtml(m.imdbRating) + '<button type="button" class="caret" data-action="toggle-details" data-id="' + m.id + '" title="' + (isOpen ? 'Collapse' : 'Expand') + '">' + (isOpen ? '▾' : '▸') + '</button></span></p>' +
         genresHtml + comingSoonHtml + pills + updateBannerHtml + detailsHtml + '<div class="t-actions">' + actions +
-        '<button class="icon-btn" data-action="toggle-details" data-id="' + m.id + '" title="Expand inline">Inline</button></div></div></div>';
+        '</div></div></div>';
     }).join('');
     renderTagChips();
   }
