@@ -50,6 +50,13 @@ etElementById('tag-chips');
     if (movie.year) metaParts.push(String(movie.year));
     metaParts.push(movie.mediaType === 'series' ? 'Series' : 'Movie');
     if (movie.imdbRating) metaParts.push('IMDb ' + movie.imdbRating);
+    if (movie.releaseDate) {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const rel = new Date(movie.releaseDate + 'T00:00:00');
+      if (!isNaN(rel.getTime()) && rel > today) {
+        metaParts.push('Coming ' + formatDMY(movie.releaseDate));
+      }
+    }
     metaEl.textContent = metaParts.join(' · ');
     genresEl.innerHTML = (movie.genres && movie.genres.length) ? genreTagsHtml(movie.genres) : '';
     if (isValidLink(movie.posterLink)) {
