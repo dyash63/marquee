@@ -1,12 +1,21 @@
 var(--text-muted); font-size: 14px; }
   #auth-boot.hidden { display: none; }
-  .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-  .welcome-card .mq-logo { font-size: 36px; margin-bottom: 4px; color: var(--gold); }
+  .welcome-card { position: relative; background: linear-gradient(180deg, rgba(22,24,36,0.95), rgba(14,16,26,0.98)); border: 1px solid rgba(232,185,77,0.22); border-radius: 18px; padding: 36px 28px 32px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(232,185,77,0.08) inset; animation: cardIn 0.7s cubic-bezier(0.2,0.8,0.2,1) both; overflow: hidden; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+.welcome-card::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(232,185,77,0.7), transparent); }
+  .welcome-card .mq-logo { font-size: 42px; letter-spacing: 4px; margin: 8px 0 6px; color: #f0e6c8; text-shadow: 0 0 24px rgba(232,185,77,0.35); font-weight: 400; }
+.welcome-card .vistora-line { font-size: 15px; letter-spacing: 0.4px; color: #e8dcc0; margin: 0 0 8px; font-weight: 500; }
+.welcome-card .supporting { font-size: 13px; color: var(--text-muted); margin: 0 0 22px; line-height: 1.5; }
+.welcome-card .bulbs span { animation: bulb 1.8s ease-in-out infinite; }
+.welcome-card .bulbs span:nth-child(2n) { animation-delay: 0.3s; }
+.welcome-card .bulbs span:nth-child(3n) { animation-delay: 0.6s; }
+@keyframes bulb { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
   .welcome-card h2 { font-size: 18px; font-weight: 600; margin: 12px 0 8px; color: var(--text); }
   .welcome-card p { font-size: 14px; line-height: 1.55; color: var(--text-muted); margin: 0 0 10px; }
   .welcome-features { text-align: left; font-size: 13px; color: var(--text); margin: 16px 0 20px; padding: 0 8px; }
   .welcome-features li { margin-bottom: 6px; }
-  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: none; border-radius: 8px; background: #fff; color: #1f1f1f; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; border: none; border-radius: 10px; background: #fff; color: #1f1f1f; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.35); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.google-btn:hover { background: #fafafa; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,0,0,0.45); }
   .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
   .google-btn svg { width: 18px; height: 18px; }
   .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
