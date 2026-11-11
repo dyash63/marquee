@@ -1,15 +1,15 @@
 var(--text-muted); font-size: 14px; }
   #auth-boot.hidden { display: none; }
-  .welcome-card { background: var(--bg-elevated); border: 1px solid var(--card-border); border-radius: 14px; padding: 28px 24px; max-width: 380px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
-  .welcome-card .mq-logo { font-size: 36px; margin-bottom: 4px; color: var(--gold); }
-  .welcome-card h2 { font-size: 18px; font-weight: 600; margin: 12px 0 8px; color: var(--text); }
-  .welcome-card p { font-size: 14px; line-height: 1.55; color: var(--text-muted); margin: 0 0 10px; }
-  .welcome-features { text-align: left; font-size: 13px; color: var(--text); margin: 16px 0 20px; padding: 0 8px; }
-  .welcome-features li { margin-bottom: 6px; }
-  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 48px; border: none; border-radius: 8px; background: #fff; color: #1f1f1f; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-  .google-btn:hover { background: #f5f5f5; } .google-btn:disabled { opacity: 0.7; cursor: default; }
+  #auth-overlay { background: #0a0c18; }
+  .welcome-card { background: #12162A; border: 1px solid #2a3048; border-radius: 16px; padding: 36px 28px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,0.6); position: relative; }
+  .welcome-card::before { content: ''; position: absolute; top: 0; left: 20%; right: 20%; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+  .welcome-card .mq-logo { font-size: 42px; margin: 8px 0 6px; color: var(--gold); letter-spacing: 4px; }
+  .vistora-line { font-size: 16px; font-weight: 500; color: #F3F1EA; margin: 8px 0 6px; letter-spacing: 0.3px; }
+  .supporting { font-size: 13.5px; line-height: 1.6; color: #9AA0BE; margin: 0 0 24px; max-width: 320px; margin-left: auto; margin-right: auto; }
+  .google-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 50px; border: none; border-radius: 10px; background: #F3F1EA; color: #1A1500; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: all 0.15s ease; }
+  .google-btn:hover { background: #fff; transform: translateY(-1px); } .google-btn:disabled { opacity: 0.7; cursor: default; transform: none; }
   .google-btn svg { width: 18px; height: 18px; }
-  .auth-error { margin-top: 12px; font-size: 13px; color: var(--red-stamp); }
+  .auth-error { margin-top: 14px; font-size: 13px; color: var(--red-stamp); }
   .user-bar { position: absolute; top: 2px; right: 0; display: flex; align-items: center; gap: 6px; max-width: 150px; }
   .user-bar .user-info { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .user-bar .user-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78px; color: var(--text-muted); font-size: 11px; }
