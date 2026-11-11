@@ -73,6 +73,7 @@
 
   tabToWatch.addEventListener('click', () => { state.activeTab = 'towatch'; renderTabs(); renderList(); });
   tabWatched.addEventListener('click', () => { state.activeTab = 'watched'; renderTabs(); renderList(); });
+  if (tabFavourites) tabFavourites.addEventListener('click', () => { state.activeTab = 'favourites'; renderTabs(); renderList(); });
   tabSuggested.addEventListener('click', () => { state.activeTab = 'suggested'; renderTabs(); });
 
   document.getElementById('media-filter').addEventListener('click', (e) => {
