@@ -1,1 +1,85 @@
-PLACEHOLDER
+e();
+        if (tried.has(key)) continue;
+        tried.add(key);
+        candidates = await fetchSearchCandidatesRaw(prefix);
+        if (candidates.length) break;
+      }
+    }
+    return candidates;
+  }
+
+  // Fetches full detail + region availability for one chosen candidate.
+  async function buildResultFromCandidate(cand, regionCode) {
+    const detailPath = cand.mediaType === 'series' ? '/tv/' + cand.tmdbId : '/movie/' + cand.tmdbId;
+    const detail = await tmdbGet(detailPath, { language: 'en-US', append_to_response: 'videos,credits' });
+    let platforms = [];
+    try {
+      const providers = await tmdbGet(detailPath + '/watch/providers');
+      platforms = mapProviders(providers.results && providers.results[regionCode]);
+    } catch (e) {}
+    const year = cand.mediaType === 'series' ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
+    const releaseDate = cand.mediaType === 'series' ? (detail.first_air_date || '') : (detail.release_date || '');
+    const posterPath = detail.poster_path || cand.posterPath;
+    const backdropPath = detail.backdrop_path || '';
+    const runtime = cand.mediaType === 'series' ? (detail.episode_run_time && detail.episode_run_time[0]) : detail.runtime;
+    const trailer = (detail.videos && detail.videos.results || []).find(v => v.type === 'Trailer' && v.site === 'YouTube');
+    const director = (detail.credits && detail.credits.crew || []).find(c => c.job === 'Director');
+    // Fetch IMDb rating in parallel with nothing else blocking — needs OMDb key
+    let imdbRating = null;
+    try {
+      imdbRating = await getImdbRating(cand.mediaType === 'series' ? 'series' : 'movie', cand.tmdbId);
+    } catch (e) {}
+    return {
+      title: cand.mediaType === 'series' ? (detail.name || cand.title) : (detail.title || cand.title),
+      year, mediaType: cand.mediaType,
+      summary: (detail.overview || '').trim() || 'No summary available.',
+      posterLink: posterPath ? TMDB_IMG + posterPath : '',
+      backdropLink: backdropPath ? TMDB_IMG + backdropPath : '',
+      platforms, tmdbId: cand.tmdbId,
+      genres: (detail.genres || []).map(g => g.name).filter(Boolean),
+      releaseDate: releaseDate || null,
+      runtime: runtime || null,
+      trailerKey: trailer ? trailer.key : null,
+      director: director ? director.name : null,
+      originalLanguage: detail.original_language || null,
+      imdbRating: imdbRating || null
+    };
+  }
+
+  function friendlySearchError(err) {
+    if (err && err.needsKey) return "Add a free TMDB API key in the settings above to search.";
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return "You look offline — check your connection and try again.";
+    if (err && err.status === 401) return "API key looks invalid. Use the v3 API Key (not the Read Access Token).";
+    if (err && err.status === 429) return "Too many requests — wait a few seconds and try again.";
+    if (err && err.status >= 500) return "TMDB is having a moment — try again shortly.";
+    return "Couldn't reach the box office. Check your connection and try again.";
+  }
+
+  async function getSeasonDetails(movie) {
+    if (!movie.tmdbId) return null;
+    try {
+      const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
+      const seasons = (detail.seasons || []).filter(s => s.season_number > 0).map(s => ({ season: s.season_number, episodes: s.episode_count || 0 }));
+      let nextEpisode = 'No new season announced yet';
+      if (detail.next_episode_to_air) {
+        const n = detail.next_episode_to_air;
+        nextEpisode = 'S' + n.season_number + 'E' + n.episode_number + (n.air_date ? ' · ' + formatDMY(n.air_date) : '');
+      } else if (detail.status === 'Ended' || detail.status === 'Canceled') nextEpisode = 'Series ended';
+      else if (detail.last_episode_to_air) {
+        const l = detail.last_episode_to_air;
+        nextEpisode = 'Latest: S' + l.season_number + 'E' + l.episode_number + (l.air_date ? ' (' + formatDMY(l.air_date) + ')' : '');
+      }
+      return { seasons, nextEpisode };
+    } catch (e) { return null; }
+  }
+
+  async function checkOneSeriesLatest(movie) {
+    if (!movie.tmdbId) return null;
+    try {
+      const detail = await tmdbGet('/tv/' + movie.tmdbId, { language: 'en-US' });
+      const last = detail.last_episode_to_air, next = detail.next_episode_to_air;
+      const latestKnown = last ? ('Season ' + last.season_number + (last.episode_number ? ', Ep ' + last.episode_number : '')) : (detail.number_of_seasons ? ('Season ' + detail.number_of_seasons) : '');
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let newRelease = false, releaseDetail = '';
+      if (last && last.air_date && (last.air_date === todayStr || last.air_date === yesterday)) {
