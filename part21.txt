@@ -27,6 +27,18 @@ te.movies.filter(m => m.status === 'watched').length + ')';
       : ' <span class="movie-tag">MOVIE</span>';
   }
 
+  function releaseInfoHtml(m) {
+    if (!m.releaseDate) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rel = new Date(m.releaseDate + 'T00:00:00');
+    if (isNaN(rel.getTime()) || rel <= today) return '';
+    const days = Math.ceil((rel - today) / 86400000);
+    const dateStr = formatDMY(m.releaseDate);
+    const countdown = days <= 60 ? ' · ' + days + ' day' + (days === 1 ? '' : 's') : '';
+    return '<div class="coming-soon" style="font-size:11px; color:var(--gold); margin-top:4px;">COMING SOON<br/>Release: ' + escapeHtml(dateStr) + countdown + '</div>';
+  }
+
   function renderList() {
     const tokens = tokenizeQuery(state.listSearchQuery);
     const tag = (state.tagFilter || '').toLowerCase();
@@ -51,6 +63,7 @@ te.movies.filter(m => m.status === 'watched').length + ')';
       const pills = (m.platforms && m.platforms.length)
         ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
         : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
+      const comingSoon = releaseInfoHtml(m);
       const actions = (m.status === 'towatch'
         ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
         : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
