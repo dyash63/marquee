@@ -18,6 +18,7 @@ e();
       platforms = mapProviders(providers.results && providers.results[regionCode]);
     } catch (e) {}
     const year = cand.mediaType === 'series' ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
+    const releaseDate = cand.mediaType === 'series' ? (detail.first_air_date || '') : (detail.release_date || '');
     const posterPath = detail.poster_path || cand.posterPath;
     // Fetch IMDb rating in parallel with nothing else blocking — needs OMDb key
     let imdbRating = null;
@@ -31,6 +32,7 @@ e();
       posterLink: posterPath ? TMDB_IMG + posterPath : '',
       platforms, tmdbId: cand.tmdbId,
       genres: (detail.genres || []).map(g => g.name).filter(Boolean),
+      releaseDate: releaseDate || undefined,
       imdbRating: imdbRating || undefined
     };
   }
