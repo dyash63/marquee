@@ -12,7 +12,7 @@
   .btn { font-family: inherit; font-size: 13px; font-weight: 600; border-radius: 7px; padding: 9px 13px; cursor: pointer; border: 1px solid var(--gold); background: transparent; color: var(--text); }
   .btn.filled { background: var(--gold); color: #1A1500; border-color: var(--gold); }
   .tabs { display: flex; margin-top: 20px; border-bottom: 1px solid rgba(232,185,77,0.15); }
-  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0.3px; padding: 12px 2px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease; }
+  .tab-btn { flex: 1; background: none; border: none; color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: 0; padding: 12px 1px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s ease; white-space: nowrap; text-align: center; }
   .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
   .media-filter { display: flex; gap: 8px; margin-top: 14px; }
   .list-search-row { margin-top: 12px; }
