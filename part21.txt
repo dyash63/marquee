@@ -51,9 +51,13 @@ te.movies.filter(m => m.status === 'watched').length + ')';
       const pills = (m.platforms && m.platforms.length)
         ? '<div class="t-platforms">' + m.platforms.slice(0, 3).map(p => '<span class="pill ' + escapeHtml(p.type) + '">' + escapeHtml(p.name) + '</span>').join('') + '</div>'
         : '<div class="t-platforms"><span style="color:var(--text-muted); font-size:11px;">No availability found</span></div>';
+      const favIcon = m.favourite ? '★' : '☆';
+      const favClass = m.favourite ? ' primary' : '';
       const actions = (m.status === 'towatch'
-        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
-        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button><button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>')
+        ? '<button class="icon-btn primary" data-action="watched" data-id="' + m.id + '">Mark watched</button>'
+        : '<button class="icon-btn" data-action="towatch" data-id="' + m.id + '">Move to watchlist</button>')
+        + '<button class="icon-btn' + favClass + '" data-action="favourite" data-id="' + m.id + '" title="Toggle favourite">' + favIcon + '</button>'
+        + '<button class="icon-btn" data-action="remove" data-id="' + m.id + '">Remove</button>'
         + '<button class="icon-btn" data-action="share" data-id="' + m.id + '" title="Share as image">📤</button>';
       let updateBannerHtml = '';
       if (m.hasUpdate) {
