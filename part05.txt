@@ -5,7 +5,8 @@ var(--text-muted); font-size: 14px; }
 .welcome-card::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(232,185,77,0.7), transparent); }
   .welcome-card .mq-logo { font-size: 42px; letter-spacing: 4px; margin: 8px 0 6px; color: #f0e6c8; text-shadow: 0 0 24px rgba(232,185,77,0.35); font-weight: 400; }
 .welcome-card .vistora-line { font-size: 15px; letter-spacing: 0.4px; color: #e8dcc0; margin: 0 0 8px; font-weight: 500; }
-.welcome-card .supporting { font-size: 13px; color: var(--text-muted); margin: 0 0 22px; line-height: 1.5; }
+.welcome-card .supporting { font-size: 13px; color: var(--text-muted); margin: 0 0 10px; line-height: 1.5; }
+.welcome-card .purpose { font-size: 12px; color: var(--text-muted); margin: -6px 0 22px; line-height: 1.45; opacity: 0.85; letter-spacing: 0.1px; }
 .welcome-card .bulbs span { animation: bulb 1.8s ease-in-out infinite; }
 .welcome-card .bulbs span:nth-child(2n) { animation-delay: 0.3s; }
 .welcome-card .bulbs span:nth-child(3n) { animation-delay: 0.6s; }
